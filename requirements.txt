@@ -1,0 +1,10 @@
+Flask-Caching
+SQLAlchemy
+Flask
+flask-cors
+gunicorn
+psycopg2-binary==2.9.1
+requests
+redis
+urllib3==1.26.16
+snowflake-connector-python
