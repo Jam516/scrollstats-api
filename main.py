@@ -115,7 +115,7 @@ def users():
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
     GROUP BY 1
-    ORDER BY 1
+    ORDER BY BLOCK_TIMESTAMP
     ''', time=timeframe)
     
     transactions_chart = execute_sql('''
@@ -125,7 +125,7 @@ def users():
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
     GROUP BY 1
-    ORDER BY 1
+    ORDER BY BLOCK_TIMESTAMP
     ''', time=timeframe)
 
     if timeframe == 'week':
@@ -190,7 +190,7 @@ def users():
       A.cohort_{time} IS NOT NULL
       AND A.cohort_{time} >= date_trunc('{time}', (CURRENT_TIMESTAMP() - interval '{retention_scope} {time}'))  
       AND A.cohort_{time} < date_trunc('{time}', CURRENT_TIMESTAMP())
-    ORDER BY 1, 3
+    ORDER BY A.cohort_{time}, A.{time}_number
     ''', time=timeframe, retention_scope=retention_scope)
     
     
