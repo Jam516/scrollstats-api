@@ -90,7 +90,7 @@ def users():
     ''')
 
     actives_1m = execute_sql('''
-    SELECT COUNT(DISTINCT FROM_ADDRESS)
+    SELECT COUNT(DISTINCT FROM_ADDRESS) as active_wallets 
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
     ''')
