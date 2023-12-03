@@ -75,7 +75,7 @@ def users():
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '7 day'
     ''')
-    
+
     actives_growth_7d = execute_sql('''
     WITH active_wallet_counts AS (
         SELECT
@@ -110,21 +110,25 @@ def users():
 
     active_accounts_chart = execute_sql('''
     SELECT
-    TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'DD Mon YY') as DATE,
+    TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
     COUNT(DISTINCT FROM_ADDRESS) as active_wallets
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
     GROUP BY 1
-    ''', time=timeframe)
-    
+    ORDER BY 1
+    ''',
+                                        time=timeframe)
+
     transactions_chart = execute_sql('''
     SELECT
-    TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'DD Mon YY') as DATE,
-    COUNT(DISTINCT FROM_ADDRESS) as transactions
+    TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
+    COUNT(*) as transactions
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
     GROUP BY 1
-    ''', time=timeframe)
+    ORDER BY 1
+    ''',
+                                     time=timeframe)
 
     if timeframe == 'week':
       retention_scope = 12
@@ -177,7 +181,7 @@ def users():
     )
 
     SELECT
-      TO_VARCHAR(date_trunc('{time}', A.cohort_{time}), 'YYYY-MM-DD') AS cohort,
+      TO_VARCHAR(date_trunc('{time}', A.cohort_{time}), 'YY-MM-DD') AS cohort,
       B.num_users AS total_users,
       A.{time}_number,
       ROUND((A.num_users * 100 / B.num_users), 2) as percentage
@@ -189,15 +193,16 @@ def users():
       AND A.cohort_{time} >= date_trunc('{time}', (CURRENT_TIMESTAMP() - interval '{retention_scope} {time}'))  
       AND A.cohort_{time} < date_trunc('{time}', CURRENT_TIMESTAMP())
     ORDER BY 1,3
-    ''', time=timeframe, retention_scope=retention_scope)
-    
-    
+    ''',
+                                  time=timeframe,
+                                  retention_scope=retention_scope)
+
     response_data = {
       "actives_24h": actives_24h,
       "actives_growth_24h": actives_growth_24h,
       "actives_7d": actives_7d,
       "actives_growth_7d": actives_growth_7d,
-      "actives_1m": actives_1m,  
+      "actives_1m": actives_1m,
       "actives_growth_1m": actives_growth_1m,
       "active_accounts_chart": active_accounts_chart,
       "transactions_chart": transactions_chart,
