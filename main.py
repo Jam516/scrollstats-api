@@ -141,6 +141,7 @@ def users():
     WITH transactions AS (
       SELECT FROM_ADDRESS, BLOCK_TIMESTAMP AS created_at
       FROM SCROLL.RAW.TRANSACTIONS
+      WHERE BLOCK_TIMESTAMP < date_trunc('{time}', BLOCK_TIMESTAMP)
     ),
 
     cohort AS (
