@@ -113,7 +113,7 @@ def users():
     TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
     COUNT(DISTINCT FROM_ADDRESS) as active_wallets
     FROM SCROLL.RAW.TRANSACTIONS
-    WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
+    WHERE BLOCK_TIMESTAMP < date_trunc('{time}', BLOCK_TIMESTAMP)
     GROUP BY 1
     ORDER BY 1
     ''',
@@ -124,7 +124,7 @@ def users():
     TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
     COUNT(*) as transactions
     FROM SCROLL.RAW.TRANSACTIONS
-    WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '6 month' 
+    WHERE BLOCK_TIMESTAMP < date_trunc('{time}', BLOCK_TIMESTAMP)
     GROUP BY 1
     ORDER BY 1
     ''',
