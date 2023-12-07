@@ -198,6 +198,72 @@ def users():
                                   time=timeframe,
                                   retention_scope=retention_scope)
 
+    contract_users_chart = execute_sql('''
+    WITH RankedProjects AS (
+      SELECT 
+        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+        COALESCE(l.NAME, u.TO_ADDRESS) AS PROJECT,
+        COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
+      FROM 
+        SCROLL.RAW.TRANSACTIONS u
+        INNER JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+        LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON u.TO_ADDRESS = l.ADDRESS
+      GROUP BY 
+        1, 2
+    ),
+    GroupedProjects AS (
+      SELECT 
+        DATE, 
+        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+        SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
+      FROM 
+        RankedProjects
+      GROUP BY 
+        1, 2
+    )
+    SELECT 
+      TO_VARCHAR(DATE, 'YYYY-MM-DD') as DATE, PROJECT, NUM_UNIQUE_WALLETS
+    FROM 
+      GroupedProjects
+    ORDER BY 
+      DATE DESC, NUM_UNIQUE_WALLETS DESC;
+    ''',
+                                       time=timeframe)
+
+    contract_transactions_chart = execute_sql('''
+    WITH RankedProjects AS (
+      SELECT 
+        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+        COALESCE(l.NAME, u.TO_ADDRESS) AS PROJECT,
+        COUNT(DISTINCT u.HASH) AS NUM_UNIQUE_WALLETS,
+        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
+      FROM 
+        SCROLL.RAW.TRANSACTIONS u
+        INNER JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+        LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON u.TO_ADDRESS = l.ADDRESS
+      GROUP BY 
+        1, 2
+    ),
+    GroupedProjects AS (
+      SELECT 
+        DATE, 
+        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+        SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
+      FROM 
+        RankedProjects
+      GROUP BY 
+        1, 2
+    )
+    SELECT 
+      TO_VARCHAR(DATE, 'YYYY-MM-DD') as DATE, PROJECT, NUM_UNIQUE_WALLETS
+    FROM 
+      GroupedProjects
+    ORDER BY 
+      DATE DESC, NUM_UNIQUE_WALLETS DESC;
+    ''',
+                                       time=timeframe)
+
     response_data = {
       "actives_24h": actives_24h,
       "actives_growth_24h": actives_growth_24h,
@@ -207,7 +273,9 @@ def users():
       "actives_growth_1m": actives_growth_1m,
       "active_accounts_chart": active_accounts_chart,
       "transactions_chart": transactions_chart,
-      "retention_chart": retention_chart
+      "retention_chart": retention_chart,
+      "contract_users_chart": contract_users_chart,
+      "contract_transactions_chart": contract_transactions_chart
     }
 
     return jsonify(response_data)
