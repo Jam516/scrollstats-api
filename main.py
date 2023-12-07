@@ -233,7 +233,7 @@ def users():
     FROM 
       GroupedProjects
     ORDER BY 
-      DATE DESC, NUM_UNIQUE_WALLETS DESC;
+      DATE, NUM_UNIQUE_WALLETS DESC;
     ''',
                                        time=timeframe)
 
@@ -272,7 +272,7 @@ def users():
     FROM 
       GroupedProjects
     ORDER BY 
-      DATE DESC, NUM_UNIQUE_WALLETS DESC;
+      DATE, NUM_UNIQUE_WALLETS DESC;
     ''',
                                               time=timeframe)
 
