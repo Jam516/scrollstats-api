@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_caching import Cache
 import snowflake.connector
 from snowflake.connector import DictCursor
+from datetime import datetime
 import os
 
 REDIS_LINK = os.environ['REDIS']
@@ -283,7 +284,10 @@ def users():
     ''',
                                               time=timeframe)
 
+    current_time = datetime.now().strftime('%d/%m/%y %H:%M')
+
     response_data = {
+      "time": current_time,
       "actives_24h": actives_24h,
       "actives_growth_24h": actives_growth_24h,
       "actives_7d": actives_7d,
