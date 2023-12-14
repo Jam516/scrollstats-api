@@ -341,7 +341,8 @@ def users():
       "transactions_chart": transactions_chart,
       "retention_chart": retention_chart,
       "contract_users_chart": contract_users_chart,
-      "contract_transactions_chart": contract_transactions_chart
+      "contract_transactions_chart": contract_transactions_chart,
+      "contract_gas_chart": contract_gas_chart
     }
 
     return jsonify(response_data)
