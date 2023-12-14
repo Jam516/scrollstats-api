@@ -307,6 +307,28 @@ def users():
 
     return 'COMING SOON'
 
+@app.route('/bd')
+@cache.memoize(make_name=make_cache_key)
+def bd():
+  leaderboard = execute_sql('''
+  SELECT 
+  l.NAME AS PROJECT,
+  SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) AS ETH_FEES,
+  COUNT(DISTINCT u.HASH) AS NUM_TRANSACTIONS,
+  COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_WALLETS
+  FROM SCROLL.RAW.TRANSACTIONS u
+  INNER JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l 
+  ON u.TO_ADDRESS = l.ADDRESS
+  AND u.BLOCK_TIMESTAMP >= (CURRENT_TIMESTAMP() - interval '30 day') 
+  GROUP BY 1
+  ORDER BY 2 DESC 
+  ''')
+  
+  response_data = {
+    "leaderboard": leaderboard,
+  }
+
+  return jsonify(response_data)
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
