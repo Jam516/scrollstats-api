@@ -14,7 +14,7 @@ SNOWFLAKE_WAREHOUSE = os.environ['SNOWFLAKE_WAREHOUSE']
 
 config = {
   "CACHE_TYPE": "redis",
-  "CACHE_DEFAULT_TIMEOUT": 3600,
+  "CACHE_DEFAULT_TIMEOUT": 600,
   "CACHE_REDIS_URL": REDIS_LINK
 }
 
@@ -307,6 +307,7 @@ def users():
 
     return 'COMING SOON'
 
+
 @app.route('/bd')
 @cache.memoize(make_name=make_cache_key)
 def bd():
@@ -323,12 +324,13 @@ def bd():
   GROUP BY 1
   ORDER BY 2 DESC 
   ''')
-  
+
   response_data = {
     "leaderboard": leaderboard,
   }
 
   return jsonify(response_data)
+
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
