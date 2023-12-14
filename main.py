@@ -241,48 +241,48 @@ def users():
     ''',
                                        time=timeframe)
 
-    contract_transactions_chart = execute_sql('''
-    WITH RankedProjects AS (
-      SELECT 
-        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
-        CASE 
-            WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
-            WHEN VALUE > 0 THEN 'ETH transfer'
-            ELSE 'empty_call'
-        END AS PROJECT,
-        COUNT(DISTINCT u.HASH) AS NUM_TRANSACTIONS,
-        COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
-        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
-      FROM 
-        SCROLL.RAW.TRANSACTIONS u
-        LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
-        
-      WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
-      GROUP BY 
-        1, 2
-    ),
-    GroupedProjects AS (
-      SELECT 
-        DATE, 
-        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
-        SUM(NUM_TRANSACTIONS) AS NUM_TRANSACTIONS
-      FROM 
-        RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 10
-      GROUP BY 
-        1, 2
-    )
-    SELECT 
-      TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE, 
-      COALESCE(l.NAME, g.PROJECT) AS PROJECT, 
-      g.NUM_TRANSACTIONS
-    FROM 
-      GroupedProjects g
-    LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
-    ORDER BY 
-      g.DATE, g.NUM_TRANSACTIONS DESC;
-    ''',
-                                              time=timeframe)
+    # contract_transactions_chart = execute_sql('''
+    # WITH RankedProjects AS (
+    #   SELECT
+    #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+    #     CASE
+    #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
+    #         WHEN VALUE > 0 THEN 'ETH transfer'
+    #         ELSE 'empty_call'
+    #     END AS PROJECT,
+    #     COUNT(DISTINCT u.HASH) AS NUM_TRANSACTIONS,
+    #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+    #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
+    #   FROM
+    #     SCROLL.RAW.TRANSACTIONS u
+    #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+
+    #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
+    #   GROUP BY
+    #     1, 2
+    # ),
+    # GroupedProjects AS (
+    #   SELECT
+    #     DATE,
+    #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+    #     SUM(NUM_TRANSACTIONS) AS NUM_TRANSACTIONS
+    #   FROM
+    #     RankedProjects
+    #   WHERE NUM_UNIQUE_WALLETS > 10
+    #   GROUP BY
+    #     1, 2
+    # )
+    # SELECT
+    #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE,
+    #   COALESCE(l.NAME, g.PROJECT) AS PROJECT,
+    #   g.NUM_TRANSACTIONS
+    # FROM
+    #   GroupedProjects g
+    # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
+    # ORDER BY
+    #   g.DATE, g.NUM_TRANSACTIONS DESC;
+    # ''',
+    #                                           time=timeframe)
 
     contract_gas_chart = execute_sql('''
     WITH RankedProjects AS (
@@ -327,6 +327,63 @@ def users():
     ''',
                                      time=timeframe)
 
+    trending_contracts = execute_sql('''
+    WITH time_settings AS (
+    SELECT 
+        CURRENT_TIMESTAMP() - INTERVAL '1 {time}' AS one_{time}_ago,
+        CURRENT_TIMESTAMP() - INTERVAL '2 {time}' AS two_{time}s_ago
+    ),
+    aggregated_data AS (
+        SELECT 
+            t.TO_ADDRESS AS contract,  
+            COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.HASH END) AS txns_current,
+            COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.HASH END) AS txns_previous,
+            COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
+            COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
+            SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
+            SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_previous
+        FROM 
+            SCROLL.RAW.TRANSACTIONS t  
+        INNER JOIN 
+            SCROLL.RAW.CONTRACTS c ON t.TO_ADDRESS = c.ADDRESS
+        CROSS JOIN 
+            time_settings ts
+        WHERE 
+            t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago
+        GROUP BY 
+            t.TO_ADDRESS
+    )
+    
+    SELECT
+        ad.contract,
+        COALESCE(l.NAME, 'Unknown') AS project,
+        ad.gas_spend_current,
+        CASE 
+            WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
+            ELSE NULL 
+        END as gas_growth,
+        ad.txns_current,
+        CASE 
+            WHEN ad.txns_previous > 0 THEN (100 * (ad.txns_current - ad.txns_previous) / ad.txns_previous) 
+            ELSE NULL 
+        END as txn_growth,
+        ad.active_accounts_current,
+        CASE 
+            WHEN ad.active_accounts_previous > 0 THEN (100 * (ad.active_accounts_current - ad.active_accounts_previous) / ad.active_accounts_previous) 
+            ELSE NULL 
+        END as accounts_growth
+    FROM 
+        aggregated_data ad
+    LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON ad.contract = l.ADDRESS    
+    WHERE 
+        ad.active_accounts_previous > 10
+        AND (ad.active_accounts_current - ad.active_accounts_previous) > 0
+    ORDER BY 
+        ad.gas_spend_current DESC
+    LIMIT 50
+    ''',
+                                     time=timeframe)
+
     current_time = datetime.now().strftime('%d/%m/%y %H:%M')
 
     response_data = {
@@ -341,8 +398,9 @@ def users():
       "transactions_chart": transactions_chart,
       "retention_chart": retention_chart,
       "contract_users_chart": contract_users_chart,
-      "contract_transactions_chart": contract_transactions_chart,
-      "contract_gas_chart": contract_gas_chart
+      # "contract_transactions_chart": contract_transactions_chart,
+      "contract_gas_chart": contract_gas_chart,
+      "trending_contracts": trending_contracts
     }
 
     return jsonify(response_data)
