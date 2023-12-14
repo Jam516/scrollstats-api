@@ -225,7 +225,7 @@ def users():
         SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
       FROM 
         RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 100
+      WHERE NUM_UNIQUE_WALLETS > 10
       GROUP BY 
         1, 2
     )
@@ -268,7 +268,7 @@ def users():
         SUM(NUM_TRANSACTIONS) AS NUM_TRANSACTIONS
       FROM 
         RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 100
+      WHERE NUM_UNIQUE_WALLETS > 10
       GROUP BY 
         1, 2
     )
@@ -311,7 +311,7 @@ def users():
         SUM(ETH_FEES) AS ETH_FEES
       FROM 
         RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 100
+      WHERE NUM_UNIQUE_WALLETS > 10
       GROUP BY 
         1, 2
     )
@@ -325,7 +325,7 @@ def users():
     ORDER BY 
       g.DATE, g.ETH_FEES DESC;
     ''',
-                                              time=timeframe)
+                                     time=timeframe)
 
     current_time = datetime.now().strftime('%d/%m/%y %H:%M')
 
