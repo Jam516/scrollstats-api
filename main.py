@@ -284,48 +284,48 @@ def users():
     ''',
                                               time=timeframe)
 
-    # contract_gas_chart = execute_sql('''
-    # WITH RankedProjects AS (
-    #   SELECT 
-    #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
-    #     CASE 
-    #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
-    #         WHEN VALUE > 0 THEN 'ETH transfer'
-    #         ELSE 'empty_call'
-    #     END AS PROJECT,
-    #     SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) AS ETH_FEES,
-    #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
-    #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) DESC) AS RN
-    #   FROM 
-    #     SCROLL.RAW.TRANSACTIONS u
-    #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+    contract_gas_chart = execute_sql('''
+    WITH RankedProjects AS (
+      SELECT 
+        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+        CASE 
+            WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
+            WHEN VALUE > 0 THEN 'ETH transfer'
+            ELSE 'empty_call'
+        END AS PROJECT,
+        SUM((RECEIPT_L1_FEE + GAS_PRICE * RECEIPT_GAS_USED)/1e18) AS ETH_FEES,
+        COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY SUM((RECEIPT_L1_FEE + GAS_PRICE * RECEIPT_GAS_USED)/1e18) DESC) AS RN
+      FROM 
+        SCROLL.RAW.TRANSACTIONS u
+        LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
 
-    #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
-    #   GROUP BY 
-    #     1, 2
-    # ),
-    # GroupedProjects AS (
-    #   SELECT 
-    #     DATE, 
-    #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
-    #     SUM(ETH_FEES) AS ETH_FEES
-    #   FROM 
-    #     RankedProjects
-    #   WHERE NUM_UNIQUE_WALLETS > 10
-    #   GROUP BY 
-    #     1, 2
-    # )
-    # SELECT 
-    #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE, 
-    #   COALESCE(l.NAME, g.PROJECT) AS PROJECT, 
-    #   g.ETH_FEES
-    # FROM 
-    #   GroupedProjects g
-    # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
-    # ORDER BY 
-    #   g.DATE, g.ETH_FEES DESC;
-    # ''',
-    #                                  time=timeframe)
+      WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
+      GROUP BY 
+        1, 2
+    ),
+    GroupedProjects AS (
+      SELECT 
+        DATE, 
+        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+        SUM(ETH_FEES) AS ETH_FEES
+      FROM 
+        RankedProjects
+      WHERE NUM_UNIQUE_WALLETS > 10
+      GROUP BY 
+        1, 2
+    )
+    SELECT 
+      TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE, 
+      COALESCE(l.NAME, g.PROJECT) AS PROJECT, 
+      g.ETH_FEES
+    FROM 
+      GroupedProjects g
+    LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
+    ORDER BY 
+      g.DATE, g.ETH_FEES DESC;
+    ''',
+                                     time=timeframe)
 
     trending_contracts = execute_sql('''
     WITH time_settings AS (
@@ -399,7 +399,7 @@ def users():
       "retention_chart": retention_chart,
       # "contract_users_chart": contract_users_chart,
       "contract_transactions_chart": contract_transactions_chart,
-      # "contract_gas_chart": contract_gas_chart,
+      "contract_gas_chart": contract_gas_chart,
       "trending_contracts": trending_contracts
     }
 
@@ -428,8 +428,8 @@ def bd():
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.HASH END) AS txns_previous,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
-          SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
-          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_previous
+          SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
+          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END END) AS gas_spend_previous
       FROM 
           SCROLL.RAW.TRANSACTIONS t  
       INNER JOIN 
