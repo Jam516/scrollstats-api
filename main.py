@@ -379,7 +379,7 @@ def users():
         ad.active_accounts_previous > 10
         AND (ad.active_accounts_current - ad.active_accounts_previous) > 0
     ORDER BY 
-        ad.gas_spend_current DESC
+        ad.txns_current DESC
     LIMIT 50
     ''',
                                      time=timeframe)
