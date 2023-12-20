@@ -554,11 +554,94 @@ def economics():
     ''',
                             time=timeframe)
 
+  week_gross_profit = execute_sql('''
+  WITH batch_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS BATCH_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
+  )
+
+  ,verify_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS VERIFICATION_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
+  )
+
+  ,rev AS (
+  SELECT
+      SUM(GAS_REV) AS GAS_REV
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
+  WHERE DAY >= current_timestamp - interval '1 week' 
+  )
+
+
+  SELECT
+  GAS_REV - COALESCE(BATCH_FEES,0) - COALESCE(VERIFICATION_FEES,0) AS PROFIT
+  FROM rev,batch_fees,verify_fees
+  ''')
+
+  month_gross_profit = execute_sql('''
+  WITH batch_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS BATCH_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
+  )
+
+  ,verify_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS VERIFICATION_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
+  )
+
+  ,rev AS (
+  SELECT
+      SUM(GAS_REV) AS GAS_REV
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
+  WHERE DAY >= current_timestamp - interval '1 month' 
+  )
+
+
+  SELECT
+  GAS_REV - COALESCE(BATCH_FEES,0) - COALESCE(VERIFICATION_FEES,0) AS PROFIT
+  FROM rev,batch_fees,verify_fees
+  ''')
+
+  all_gross_profit = execute_sql('''
+  WITH batch_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS BATCH_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  )
+
+  ,verify_fees AS (
+  SELECT
+      SUM(GAS_SPEND) AS VERIFICATION_FEES
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  )
+
+  ,rev AS (
+  SELECT
+      SUM(GAS_REV) AS GAS_REV
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
+  )
+
+  SELECT
+  GAS_REV - COALESCE(BATCH_FEES,0) - COALESCE(VERIFICATION_FEES,0) AS PROFIT
+  FROM rev,batch_fees,verify_fees
+  ''')
+
   response_data = {
     "gross_profit": gross_profit,
     "batch_fees": batch_fees,
     "verify_fees": verify_fees,
-    "gas_revenue": gas_revenue
+    "gas_revenue": gas_revenue,
+    "week_gross_profit": week_gross_profit,
+    "month_gross_profit": month_gross_profit,
+    "all_gross_profit": all_gross_profit,
   }
 
   return jsonify(response_data)
