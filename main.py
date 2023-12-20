@@ -14,7 +14,7 @@ SNOWFLAKE_WAREHOUSE = os.environ['SNOWFLAKE_WAREHOUSE']
 
 config = {
   "CACHE_TYPE": "redis",
-  "CACHE_DEFAULT_TIMEOUT": 3600,
+  "CACHE_DEFAULT_TIMEOUT": 600,
   "CACHE_REDIS_URL": REDIS_LINK
 }
 
@@ -545,7 +545,7 @@ def economics():
 
   gas_revenue = execute_sql('''
   SELECT
-      date_trunc('{time}', DAY) AS DATE,
+      TO_VARCHAR(date_trunc('{time}', DAY), 'YY-MM-DD') AS DATE,
       SUM(GAS_REV) AS GAS_REV,
       SUM(GAS_REV_USD) AS GAS_REV_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
