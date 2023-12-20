@@ -414,7 +414,7 @@ def users():
 @cache.memoize(make_name=make_cache_key)
 def bd():
   timeframe = request.args.get('timeframe', 'month')
-  
+
   leaderboard = execute_sql('''
   WITH time_settings AS (
       SELECT 
@@ -429,7 +429,7 @@ def bd():
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
           SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
-          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END END) AS gas_spend_previous
+          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_previous
       FROM 
           SCROLL.RAW.TRANSACTIONS t  
       INNER JOIN 
@@ -465,7 +465,7 @@ def bd():
   ORDER BY 
       ad.gas_spend_current DESC
     ''',
-                                     time=timeframe)
+                            time=timeframe)
 
   response_data = {
     "leaderboard": leaderboard,
