@@ -474,6 +474,84 @@ def bd():
   return jsonify(response_data)
 
 
+@app.route('/economics')
+@cache.memoize(make_name=make_cache_key)
+def economics():
+  timeframe = request.args.get('timeframe', 'month')
+
+  gross_profit = execute_sql('''
+  WITH batch_fees AS (
+  SELECT
+      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      SUM(GAS_SPEND) AS BATCH_FEES,
+      SUM(GAS_SPEND_USD) AS BATCH_FEES_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  GROUP BY 1
+  ORDER BY 1
+  )
+  
+  ,verify_fees AS (
+  SELECT
+      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      SUM(GAS_SPEND) AS VERIFICATION_FEES,
+      SUM(GAS_SPEND_USD) AS VERIFICATION_FEES_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  GROUP BY 1
+  ORDER BY 1
+  )
+  
+  ,rev AS (
+  SELECT
+      date_trunc('week', DAY) AS DATE,
+      SUM(GAS_REV) AS GAS_REV,
+      SUM(GAS_REV_USD) AS GAS_REV_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
+  GROUP BY 1
+  ORDER BY 1
+  )
+  
+  
+  SELECT
+  r.DATE,
+  GAS_REV - COALESCE(BATCH_FEES,0) - COALESCE(VERIFICATION_FEES,0) AS PROFIT,
+  GAS_REV_USD - COALESCE(BATCH_FEES_USD,0) - COALESCE(VERIFICATION_FEES_USD,0) AS PROFIT_USD
+  FROM rev r
+  LEFT JOIN batch_fees c ON (c.DATE = r.DATE)
+  LEFT JOIN verify_fees v ON (c.DATE = v.DATE)
+    ''',
+                             time=timeframe)
+
+  batch_fees = execute_sql('''
+  SELECT
+      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      SUM(GAS_SPEND) AS BATCH_FEES,
+      SUM(GAS_SPEND_USD) AS BATCH_FEES_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  GROUP BY 1
+  ORDER BY 1
+    ''',
+                           time=timeframe)
+
+  verify_fees = execute_sql('''
+  SELECT
+      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      SUM(GAS_SPEND) AS VERIFICATION_FEES,
+      SUM(GAS_SPEND_USD) AS VERIFICATION_FEES_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  GROUP BY 1
+  ORDER BY 1
+    ''',
+                            time=timeframe)
+
+  response_data = {
+    "gross_profit": gross_profit,
+    "batch_fees": batch_fees,
+    "verify_fees": verify_fees,
+  }
+
+  return jsonify(response_data)
+
+
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
 
