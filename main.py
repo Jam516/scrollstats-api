@@ -199,47 +199,47 @@ def users():
                                   time=timeframe,
                                   retention_scope=retention_scope)
 
-    contract_users_chart = execute_sql('''
-    WITH RankedProjects AS (
-      SELECT
-        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
-        CASE
-            WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
-            WHEN VALUE > 0 THEN 'ETH transfer'
-            ELSE 'empty_call'
-        END AS PROJECT,
-        COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
-        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
-      FROM
-        SCROLL.RAW.TRANSACTIONS u
-        LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+    # contract_users_chart = execute_sql('''
+    # WITH RankedProjects AS (
+    #   SELECT
+    #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+    #     CASE
+    #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
+    #         WHEN VALUE > 0 THEN 'ETH transfer'
+    #         ELSE 'empty_call'
+    #     END AS PROJECT,
+    #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+    #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
+    #   FROM
+    #     SCROLL.RAW.TRANSACTIONS u
+    #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
 
-      WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
-      GROUP BY
-        1, 2
-    ),
-    GroupedProjects AS (
-      SELECT
-        DATE,
-        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
-        SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
-      FROM
-        RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 10
-      GROUP BY
-        1, 2
-    )
-    SELECT
-      TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE,
-      COALESCE(l.NAME, g.PROJECT) AS PROJECT,
-      g.NUM_UNIQUE_WALLETS
-    FROM
-      GroupedProjects g
-    LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
-    ORDER BY
-      g.DATE, g.NUM_UNIQUE_WALLETS DESC;
-    ''',
-                                       time=timeframe)
+    #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
+    #   GROUP BY
+    #     1, 2
+    # ),
+    # GroupedProjects AS (
+    #   SELECT
+    #     DATE,
+    #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+    #     SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
+    #   FROM
+    #     RankedProjects
+    #   WHERE NUM_UNIQUE_WALLETS > 10
+    #   GROUP BY
+    #     1, 2
+    # )
+    # SELECT
+    #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE,
+    #   COALESCE(l.NAME, g.PROJECT) AS PROJECT,
+    #   g.NUM_UNIQUE_WALLETS
+    # FROM
+    #   GroupedProjects g
+    # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
+    # ORDER BY
+    #   g.DATE, g.NUM_UNIQUE_WALLETS DESC;
+    # ''',
+    #                                    time=timeframe)
 
     contract_transactions_chart = execute_sql('''
     WITH RankedProjects AS (
@@ -284,48 +284,48 @@ def users():
     ''',
                                               time=timeframe)
 
-    contract_gas_chart = execute_sql('''
-    WITH RankedProjects AS (
-      SELECT 
-        DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
-        CASE 
-            WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
-            WHEN VALUE > 0 THEN 'ETH transfer'
-            ELSE 'empty_call'
-        END AS PROJECT,
-        SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) AS ETH_FEES,
-        COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
-        ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) DESC) AS RN
-      FROM 
-        SCROLL.RAW.TRANSACTIONS u
-        LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+    # contract_gas_chart = execute_sql('''
+    # WITH RankedProjects AS (
+    #   SELECT 
+    #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+    #     CASE 
+    #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
+    #         WHEN VALUE > 0 THEN 'ETH transfer'
+    #         ELSE 'empty_call'
+    #     END AS PROJECT,
+    #     SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) AS ETH_FEES,
+    #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+    #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY SUM((GAS_PRICE * RECEIPT_GAS_USED)/1e18) DESC) AS RN
+    #   FROM 
+    #     SCROLL.RAW.TRANSACTIONS u
+    #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
 
-      WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
-      GROUP BY 
-        1, 2
-    ),
-    GroupedProjects AS (
-      SELECT 
-        DATE, 
-        CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
-        SUM(ETH_FEES) AS ETH_FEES
-      FROM 
-        RankedProjects
-      WHERE NUM_UNIQUE_WALLETS > 10
-      GROUP BY 
-        1, 2
-    )
-    SELECT 
-      TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE, 
-      COALESCE(l.NAME, g.PROJECT) AS PROJECT, 
-      g.ETH_FEES
-    FROM 
-      GroupedProjects g
-    LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
-    ORDER BY 
-      g.DATE, g.ETH_FEES DESC;
-    ''',
-                                     time=timeframe)
+    #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
+    #   GROUP BY 
+    #     1, 2
+    # ),
+    # GroupedProjects AS (
+    #   SELECT 
+    #     DATE, 
+    #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+    #     SUM(ETH_FEES) AS ETH_FEES
+    #   FROM 
+    #     RankedProjects
+    #   WHERE NUM_UNIQUE_WALLETS > 10
+    #   GROUP BY 
+    #     1, 2
+    # )
+    # SELECT 
+    #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE, 
+    #   COALESCE(l.NAME, g.PROJECT) AS PROJECT, 
+    #   g.ETH_FEES
+    # FROM 
+    #   GroupedProjects g
+    # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
+    # ORDER BY 
+    #   g.DATE, g.ETH_FEES DESC;
+    # ''',
+    #                                  time=timeframe)
 
     trending_contracts = execute_sql('''
     WITH time_settings AS (
@@ -380,7 +380,7 @@ def users():
         AND (ad.active_accounts_current - ad.active_accounts_previous) > 0
     ORDER BY 
         ad.txns_current DESC
-    LIMIT 50
+    LIMIT 20
     ''',
                                      time=timeframe)
 
@@ -397,9 +397,9 @@ def users():
       "active_accounts_chart": active_accounts_chart,
       "transactions_chart": transactions_chart,
       "retention_chart": retention_chart,
-      "contract_users_chart": contract_users_chart,
+      # "contract_users_chart": contract_users_chart,
       "contract_transactions_chart": contract_transactions_chart,
-      "contract_gas_chart": contract_gas_chart,
+      # "contract_gas_chart": contract_gas_chart,
       "trending_contracts": trending_contracts
     }
 
