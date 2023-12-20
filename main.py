@@ -482,7 +482,7 @@ def economics():
   gross_profit = execute_sql('''
   WITH batch_fees AS (
   SELECT
-      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      date_trunc('{time}', BLOCK_TIMESTAMP) AS DATE,
       SUM(GAS_SPEND) AS BATCH_FEES,
       SUM(GAS_SPEND_USD) AS BATCH_FEES_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
@@ -492,7 +492,7 @@ def economics():
   
   ,verify_fees AS (
   SELECT
-      date_trunc('week', BLOCK_TIMESTAMP) AS DATE,
+      date_trunc('{time}', BLOCK_TIMESTAMP) AS DATE,
       SUM(GAS_SPEND) AS VERIFICATION_FEES,
       SUM(GAS_SPEND_USD) AS VERIFICATION_FEES_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
@@ -502,7 +502,7 @@ def economics():
   
   ,rev AS (
   SELECT
-      date_trunc('week', DAY) AS DATE,
+      date_trunc('{time}', DAY) AS DATE,
       SUM(GAS_REV) AS GAS_REV,
       SUM(GAS_REV_USD) AS GAS_REV_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
@@ -523,7 +523,7 @@ def economics():
 
   batch_fees = execute_sql('''
   SELECT
-      TO_VARCHAR(date_trunc('week', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
+      TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
       SUM(GAS_SPEND) AS BATCH_FEES,
       SUM(GAS_SPEND_USD) AS BATCH_FEES_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
@@ -534,10 +534,21 @@ def economics():
 
   verify_fees = execute_sql('''
   SELECT
-      TO_VARCHAR(date_trunc('week', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
+      TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
       SUM(GAS_SPEND) AS VERIFICATION_FEES,
       SUM(GAS_SPEND_USD) AS VERIFICATION_FEES_USD
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  GROUP BY 1
+  ORDER BY 1
+    ''',
+                            time=timeframe)
+
+  gas_revenue = execute_sql('''
+  SELECT
+      date_trunc('{time}', DAY) AS DATE,
+      SUM(GAS_REV) AS GAS_REV,
+      SUM(GAS_REV_USD) AS GAS_REV_USD
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_L2_REVENUE
   GROUP BY 1
   ORDER BY 1
     ''',
@@ -547,6 +558,7 @@ def economics():
     "gross_profit": gross_profit,
     "batch_fees": batch_fees,
     "verify_fees": verify_fees,
+    "gas_revenue": gas_revenue
   }
 
   return jsonify(response_data)
