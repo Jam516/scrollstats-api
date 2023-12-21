@@ -340,8 +340,8 @@ def users():
             COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.HASH END) AS txns_previous,
             COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
             COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
-            SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
-            SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_previous
+            SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_current,
+            SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN (t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18 END) AS gas_spend_previous
         FROM 
             SCROLL.RAW.TRANSACTIONS t  
         INNER JOIN 
