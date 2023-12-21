@@ -579,7 +579,7 @@ def economics():
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
-  WHERE DAY >= current_timestamp - interval '1 week' 
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
   )
 
 
@@ -607,7 +607,7 @@ def economics():
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
-  WHERE DAY >= current_timestamp - interval '1 month' 
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
   )
 
 
