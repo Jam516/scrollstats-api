@@ -640,6 +640,26 @@ def economics():
   FROM rev,batch_fees,verify_fees
   ''')
 
+  week_revenue = execute_sql('''
+  SELECT
+      SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
+  FROM SCROLL.RAW.TRANSACTIONS
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
+  ''')
+
+  month_revenue = execute_sql('''
+  SELECT
+      SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
+  FROM SCROLL.RAW.TRANSACTIONS
+  WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
+  ''')
+
+  all_revenue = execute_sql('''
+  SELECT
+      SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
+  FROM SCROLL.RAW.TRANSACTIONS
+  ''')
+
   response_data = {
     "gross_profit": gross_profit,
     "batch_fees": batch_fees,
@@ -648,6 +668,9 @@ def economics():
     "week_gross_profit": week_gross_profit,
     "month_gross_profit": month_gross_profit,
     "all_gross_profit": all_gross_profit,
+    "week_revenue": week_revenue,
+    "month_revenue": month_revenue,
+    "all_revenue": all_revenue,
   }
 
   return jsonify(response_data)
