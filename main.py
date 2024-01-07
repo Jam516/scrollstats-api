@@ -660,6 +660,16 @@ def economics():
   FROM SCROLL.RAW.TRANSACTIONS
   ''')
 
+  l1vl2fee = execute_sql('''
+  SELECT
+  TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
+  SUM(RECEIPT_L1_FEE/1E18) AS l1_fee,
+  SUM((RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS l2_fee
+  FROM SCROLL.RAW.TRANSACTIONS
+  GROUP BY 1
+  ''',
+                         time=timeframe)
+
   response_data = {
     "gross_profit": gross_profit,
     "batch_fees": batch_fees,
@@ -671,6 +681,7 @@ def economics():
     "week_revenue": week_revenue,
     "month_revenue": month_revenue,
     "all_revenue": all_revenue,
+    "l1vl2fee": l1vl2fee,
   }
 
   return jsonify(response_data)
