@@ -686,20 +686,21 @@ def economics():
 
   return jsonify(response_data)
 
+
 @app.route('/deployers')
 @cache.memoize(make_name=make_cache_key)
 def deployers():
-  timeframe = request.args.get('timeframe', 'month')
+  timeframe = request.args.get('timeframe', 'week')
 
   all_deployers = execute_sql('''
   SELECT
-  TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,,
+  TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
   COUNT(DISTINCT DEPLOYER) AS ALL_DEPLOYERS
   FROM SCROLL.RAW.CONTRACTS
   GROUP BY 1
   ORDER BY 1
   ''',
-                               time=timeframe)
+                              time=timeframe)
 
   # key_deployers = execute_sql('''
   # SELECT
@@ -734,7 +735,7 @@ def deployers():
   GROUP BY 1,2
   ORDER BY 1
   ''',
-                               time=timeframe)
+                                        time=timeframe)
 
   chain_key_deployers = execute_sql('''
   WITH scroll AS (
@@ -780,7 +781,7 @@ def deployers():
   INNER JOIN arbitrum a ON a.DATE = s.DATE
   ORDER BY 1
   ''',
-                               time=timeframe)
+                                    time=timeframe)
 
   response_data = {
     "all_deployers": all_deployers,
@@ -788,8 +789,9 @@ def deployers():
     "returning_key_deployers": returning_key_deployers,
     "chain_key_deployers": chain_key_deployers,
   }
-  
+
   return jsonify(response_data)
+
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
