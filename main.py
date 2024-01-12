@@ -686,6 +686,110 @@ def economics():
 
   return jsonify(response_data)
 
+@app.route('/deployers')
+@cache.memoize(make_name=make_cache_key)
+def deployers():
+  timeframe = request.args.get('timeframe', 'month')
+
+  all_deployers = execute_sql('''
+  SELECT
+  TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,,
+  COUNT(DISTINCT DEPLOYER) AS ALL_DEPLOYERS
+  FROM SCROLL.RAW.CONTRACTS
+  GROUP BY 1
+  ORDER BY 1
+  ''',
+                               time=timeframe)
+
+  # key_deployers = execute_sql('''
+  # SELECT
+  # TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
+  # COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+  # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
+  # WHERE token_type <> 'erc20'
+  # AND is_min_length = 1
+  # AND is_used = 1
+  # GROUP BY 1
+  # ORDER BY 1
+  # ''',
+  #                              time=timeframe)
+
+  returning_key_deployers = execute_sql('''
+  SELECT
+      TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
+      CASE 
+          WHEN date_trunc('week', CREATED_AT) = date_trunc('week', FIRST_DEPLOYMENT) THEN 'Newly Active Deployer'
+          ELSE 'Returning Deployer'
+      END as classification,
+      COUNT(DISTINCT DEPLOYER) as num_accounts
+  FROM 
+  (   
+      SELECT
+      DEPLOYER,
+      CREATED_AT,
+      MIN(CREATED_AT) OVER (PARTITION BY DEPLOYER) AS FIRST_DEPLOYMENT
+      FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
+  ) 
+  AS t
+  GROUP BY 1,2
+  ORDER BY 1
+  ''',
+                               time=timeframe)
+
+  chain_key_deployers = execute_sql('''
+  WITH scroll AS (
+    SELECT
+    date_trunc('{time}', CREATED_AT) AS DATE,
+    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
+    WHERE token_type <> 'erc20'
+    AND is_min_length = 1
+    AND is_used = 1
+    GROUP BY 1
+  ),
+  
+  optimism AS (
+    SELECT
+    date_trunc('{time}', CREATED_AT) AS DATE,
+    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_OPTIMISM_DEPLOYERS
+    WHERE token_type <> 'erc20'
+    AND is_min_length = 1
+    AND is_used = 1
+    GROUP BY 1
+  ),
+  
+  arbitrum AS (
+    SELECT
+    date_trunc('{time}', CREATED_AT) AS DATE,
+    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ARBITRUM_DEPLOYERS
+    WHERE token_type <> 'erc20'
+    AND is_min_length = 1
+    AND is_used = 1
+    GROUP BY 1
+  )
+  
+  SELECT
+  TO_VARCHAR(s.DATE, 'YY-MM-DD') AS DATE,
+  s.FILTERED_DEPLOYERS AS SCROLL_DEPLOYERS,
+  o.FILTERED_DEPLOYERS AS OPTIMISM_DEPLOYERS,
+  a.FILTERED_DEPLOYERS AS ARBITRUM_DEPLOYERS
+  FROM scroll s
+  INNER JOIN optimism o ON o.DATE = s.DATE
+  INNER JOIN arbitrum a ON a.DATE = s.DATE
+  ORDER BY 1
+  ''',
+                               time=timeframe)
+
+  response_data = {
+    "all_deployers": all_deployers,
+    # "key_deployers": key_deployers,
+    "returning_key_deployers": returning_key_deployers,
+    "chain_key_deployers": chain_key_deployers,
+  }
+  
+  return jsonify(response_data)
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
