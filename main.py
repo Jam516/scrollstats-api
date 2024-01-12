@@ -705,7 +705,7 @@ def deployers():
   key_deployers = execute_sql('''
   SELECT
   TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
-  COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
   WHERE token_type <> 'erc20'
   AND is_min_length = 1
@@ -730,6 +730,9 @@ def deployers():
       CREATED_AT,
       MIN(CREATED_AT) OVER (PARTITION BY DEPLOYER) AS FIRST_DEPLOYMENT
       FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
+      WHERE token_type <> 'erc20'
+      AND is_min_length = 1
+      AND is_used = 1
   ) 
   AS t
   GROUP BY 1,2
