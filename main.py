@@ -702,18 +702,18 @@ def deployers():
   ''',
                               time=timeframe)
 
-  # key_deployers = execute_sql('''
-  # SELECT
-  # TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
-  # COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
-  # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
-  # WHERE token_type <> 'erc20'
-  # AND is_min_length = 1
-  # AND is_used = 1
-  # GROUP BY 1
-  # ORDER BY 1
-  # ''',
-  #                              time=timeframe)
+  key_deployers = execute_sql('''
+  SELECT
+  TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
+  COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYERS
+  WHERE token_type <> 'erc20'
+  AND is_min_length = 1
+  AND is_used = 1
+  GROUP BY 1
+  ORDER BY 1
+  ''',
+                              time=timeframe)
 
   returning_key_deployers = execute_sql('''
   SELECT
@@ -785,7 +785,7 @@ def deployers():
 
   response_data = {
     "all_deployers": all_deployers,
-    # "key_deployers": key_deployers,
+    "key_deployers": key_deployers,
     "returning_key_deployers": returning_key_deployers,
     "chain_key_deployers": chain_key_deployers,
   }
