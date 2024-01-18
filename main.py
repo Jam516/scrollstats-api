@@ -697,6 +697,7 @@ def deployers():
   TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
   COUNT(DISTINCT DEPLOYER) AS ALL_DEPLOYERS
   FROM SCROLL.RAW.CONTRACTS
+  WHERE BLOCK_TIMESTAMP < date_trunc('{time}', CURRENT_TIMESTAMP())
   GROUP BY 1
   ORDER BY 1
   ''',
@@ -710,6 +711,7 @@ def deployers():
   WHERE token_type <> 'erc20'
   AND is_min_length = 1
   AND is_used = 1
+  AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
   GROUP BY 1
   ORDER BY 1
   ''',
@@ -735,6 +737,7 @@ def deployers():
       AND is_used = 1
   ) 
   AS t
+  WHERE CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
   GROUP BY 1,2
   ORDER BY 1
   ''',
@@ -749,6 +752,7 @@ def deployers():
     WHERE token_type <> 'erc20'
     AND is_min_length = 1
     AND is_used = 1
+    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
     GROUP BY 1
   ),
   
@@ -760,6 +764,7 @@ def deployers():
     WHERE token_type <> 'erc20'
     AND is_min_length = 1
     AND is_used = 1
+    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
     GROUP BY 1
   ),
   
@@ -771,6 +776,7 @@ def deployers():
     WHERE token_type <> 'erc20'
     AND is_min_length = 1
     AND is_used = 1
+    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
     GROUP BY 1
   )
   
