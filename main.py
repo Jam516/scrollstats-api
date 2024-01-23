@@ -809,7 +809,7 @@ def developers():
 
   commits = execute_sql('''
   SELECT
-  TO_VARCHAR(date_trunc('week', DATE), 'YY-MM-DD') AS DATE,
+  TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
   COUNT(*) AS COMMITS
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
   WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
@@ -821,7 +821,7 @@ def developers():
 
   git_devs = execute_sql('''
   SELECT
-  TO_VARCHAR(date_trunc('week', DATE), 'YY-MM-DD') AS DATE,
+  TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
   COUNT(DISTINCT USERNAME) AS ACTIVE_DEVS
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
   WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
