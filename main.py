@@ -802,6 +802,43 @@ def deployers():
   return jsonify(response_data)
 
 
+@app.route('/developers')
+@cache.memoize(make_name=make_cache_key)
+def developers():
+  timeframe = request.args.get('timeframe', 'week')
+
+  commits = execute_sql('''
+  SELECT
+  TO_VARCHAR(date_trunc('week', DATE), 'YY-MM-DD') AS DATE,
+  COUNT(*) AS COMMITS
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
+  WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
+  AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
+  GROUP BY 1
+  ORDER BY 1
+  ''',
+                        time=timeframe)
+
+  git_devs = execute_sql('''
+  SELECT
+  TO_VARCHAR(date_trunc('week', DATE), 'YY-MM-DD') AS DATE,
+  COUNT(DISTINCT USERNAME) AS ACTIVE_DEVS
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
+  WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
+  AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
+  GROUP BY 1
+  ORDER BY 1
+  ''',
+                         time=timeframe)
+
+  response_data = {
+    "commits": commits,
+    "git_devs": git_devs,
+  }
+
+  return jsonify(response_data)
+
+
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
 
