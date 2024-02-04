@@ -509,6 +509,7 @@ def economics():
   INNER JOIN COMMON.PRICES.TOKEN_PRICES_HOURLY_EASY p
     ON p.HOUR = date_trunc('hour', BLOCK_TIMESTAMP)
     AND p.symbol = 'ETH'
+    AND GAS_PRICE > 0
   GROUP BY 1
   ORDER BY 1
   )
@@ -555,6 +556,7 @@ def economics():
   INNER JOIN COMMON.PRICES.TOKEN_PRICES_HOURLY_EASY p
     ON p.HOUR = date_trunc('hour', BLOCK_TIMESTAMP)
     AND p.symbol = 'ETH'
+    AND GAS_PRICE > 0
   GROUP BY 1
   ORDER BY 1
     ''',
@@ -580,6 +582,7 @@ def economics():
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
+  AND GAS_PRICE > 0
   )
 
 
@@ -608,6 +611,7 @@ def economics():
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
+  AND GAS_PRICE > 0
   )
 
 
@@ -633,6 +637,7 @@ def economics():
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
+  WHERE GAS_PRICE > 0
   )
 
   SELECT
@@ -645,6 +650,7 @@ def economics():
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 week' 
+  AND GAS_PRICE > 0
   ''')
 
   month_revenue = execute_sql('''
@@ -652,12 +658,14 @@ def economics():
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
+  AND GAS_PRICE > 0
   ''')
 
   all_revenue = execute_sql('''
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
+  WHERE GAS_PRICE > 0
   ''')
 
   l1vl2fee = execute_sql('''
