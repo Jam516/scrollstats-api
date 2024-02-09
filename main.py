@@ -849,9 +849,3 @@ def developers():
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
-
-# REQUIREMENTS:
-# 1. TO GET SNOWFLAKE
-# POETRY ADD snowflake-connector-python
-# 2. TO GET SSL
-# sed -i '/    ];/i\      pkgs.openssl.out' replit.nix
