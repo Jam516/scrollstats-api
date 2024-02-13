@@ -8,3 +8,4 @@ requests
 redis
 urllib3==1.26.16
 snowflake-connector-python
+httpx
