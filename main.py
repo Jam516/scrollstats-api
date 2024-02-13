@@ -467,52 +467,47 @@ def bd():
   leaderboard = execute_sql('''
   WITH time_settings AS (
       SELECT 
-          CURRENT_TIMESTAMP() - INTERVAL '1 {time}' AS one_{time}_ago,
-          CURRENT_TIMESTAMP() - INTERVAL '2 {time}' AS two_{time}s_ago
+          CURRENT_TIMESTAMP() - INTERVAL '1 month' AS one_month_ago,
+          CURRENT_TIMESTAMP() - INTERVAL '2 month' AS two_months_ago
   ),
   aggregated_data AS (
       SELECT 
-          t.TO_ADDRESS AS contract,  
-          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.HASH END) AS txns_current,
-          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.HASH END) AS txns_previous,
-          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
-          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
-          SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_{time}_ago THEN ((t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18) END) AS gas_spend_current,
-          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_{time}_ago AND t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago THEN ((t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18) END) AS gas_spend_previous
-      FROM 
-          SCROLL.RAW.TRANSACTIONS t  
-      INNER JOIN 
-          SCROLL.RAW.CONTRACTS c ON t.TO_ADDRESS = c.ADDRESS
-      CROSS JOIN 
-          time_settings ts
-      WHERE 
-          t.BLOCK_TIMESTAMP >= ts.two_{time}s_ago
-      GROUP BY 
-          t.TO_ADDRESS
+          l.NAME AS project,
+          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.HASH END) AS txns_current,
+          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_month_ago AND t.BLOCK_TIMESTAMP >= ts.two_months_ago THEN t.HASH END) AS txns_previous,
+          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
+          COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_month_ago AND t.BLOCK_TIMESTAMP >= ts.two_months_ago THEN t.FROM_ADDRESS END) AS active_accounts_previous,
+          SUM(CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN ((t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18) END) AS gas_spend_current,
+          SUM(CASE WHEN t.BLOCK_TIMESTAMP < ts.one_month_ago AND t.BLOCK_TIMESTAMP >= ts.two_months_ago THEN ((t.RECEIPT_L1_FEE + t.GAS_PRICE * t.RECEIPT_GAS_USED)/1e18) END) AS gas_spend_previous
+      FROM SCROLL.RAW.TRANSACTIONS t  
+      INNER JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l
+        ON t.TO_ADDRESS = l.ADDRESS
+        AND l.category != 'ERC20'
+        AND l.category != 'NFT'
+      CROSS JOIN time_settings ts
+      WHERE t.BLOCK_TIMESTAMP >= ts.two_months_ago
+      GROUP BY 1
   )
   
   SELECT
-      l.NAME AS project,
-      ad.gas_spend_current as ETH_FEES,
-      CASE 
-          WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
-          ELSE 0 
-      END as ETH_FEES_GROWTH,
-      ad.txns_current as TRANSACTIONS,
-      CASE 
-          WHEN ad.txns_previous > 0 THEN (100 * (ad.txns_current - ad.txns_previous) / ad.txns_previous) 
-          ELSE 0 
-      END as TRANSACTIONS_GROWTH,
-      ad.active_accounts_current as WALLETS,
-      CASE 
-          WHEN ad.active_accounts_previous > 0 THEN (100 * (ad.active_accounts_current - ad.active_accounts_previous) / ad.active_accounts_previous) 
-          ELSE 0 
-      END as WALLETS_GROWTH
-  FROM 
-      aggregated_data ad
-  INNER JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON ad.contract = l.ADDRESS    
-  ORDER BY 
-      ad.gas_spend_current DESC
+  project,
+  ad.gas_spend_current as ETH_FEES,
+  CASE 
+      WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
+      ELSE 0 
+  END as ETH_FEES_GROWTH,
+  ad.txns_current as TRANSACTIONS,
+  CASE 
+      WHEN ad.txns_previous > 0 THEN (100 * (ad.txns_current - ad.txns_previous) / ad.txns_previous) 
+      ELSE 0 
+  END as TRANSACTIONS_GROWTH,
+  ad.active_accounts_current as WALLETS,
+  CASE 
+      WHEN ad.active_accounts_previous > 0 THEN (100 * (ad.active_accounts_current - ad.active_accounts_previous) / ad.active_accounts_previous) 
+      ELSE 0 
+  END as WALLETS_GROWTH
+  FROM aggregated_data ad  
+  ORDER BY ad.gas_spend_current DESC
     ''',
                             time=timeframe)
 
