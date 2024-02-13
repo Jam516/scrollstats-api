@@ -16,7 +16,7 @@ SNOWFLAKE_WAREHOUSE = os.environ['SNOWFLAKE_WAREHOUSE']
 
 config = {
   "CACHE_TYPE": "redis",
-  "CACHE_DEFAULT_TIMEOUT": 21600,
+  "CACHE_DEFAULT_TIMEOUT": 60,
   "CACHE_REDIS_URL": REDIS_LINK
 }
 
@@ -46,40 +46,44 @@ def execute_sql(sql_string, **kwargs):
   conn.close()
   return results
 
+
 LLAMA_API = "https://api.llama.fi"
+
 
 async def get_llama_data(endpoint):
   async with httpx.AsyncClient() as client:
-      try:
-          response = await client.get(f'{LLAMA_API}/{endpoint}')
-          if response.status_code != 200:
-              app.logger.error(f"Failed to get data from llama API: {response.text}")
-              return None, response.status_code
-          return response.json(), response.status_code
-      except httpx.RequestException as ex:
-          app.logger.error(f"Exception occurred while calling llama API: {ex}")
-          return None, 500 
+    try:
+      response = await client.get(f'{LLAMA_API}/{endpoint}')
+      if response.status_code != 200:
+        app.logger.error(f"Failed to get data from llama API: {response.text}")
+        return None, response.status_code
+      return response.json(), response.status_code
+    except httpx.RequestException as ex:
+      app.logger.error(f"Exception occurred while calling llama API: {ex}")
+      return None, 500
+
 
 async def get_tvls(slugs, slugs_dict):
   # Create a map from slug to dictionary for easy update
   slug_map = {d['SLUG']: d for d in slugs_dict}
-  
+
   async def fetch_tvl(slug):
-      response_data, status_code = await get_llama_data(f'protocol/{slug}')
-      if response_data is None:
-          return slug, None
-      return slug, response_data.get('currentChainTvls', {}).get('Scroll', None)
-  
+    response_data, status_code = await get_llama_data(f'protocol/{slug}')
+    if response_data is None:
+      return slug, None
+    return slug, response_data.get('currentChainTvls', {}).get('Scroll', None)
+
   # Gather all tasks
   tasks = [fetch_tvl(slug) for slug in slugs]
   results = await asyncio.gather(*tasks)
-  
+
   # Update slugs_dict with the fetched TVL values
   for slug, tvl in results:
-      if slug in slug_map:
-          slug_map[slug]['TVL'] = tvl
-  
+    if slug in slug_map:
+      slug_map[slug]['TVL'] = tvl
+
   return list(slug_map.values())
+
 
 @app.route('/users')
 @cache.memoize(make_name=make_cache_key)
@@ -459,7 +463,7 @@ def bd():
   ''')
   slug_list = [d['SLUG'] for d in slugs_dict]
   updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
-  
+
   leaderboard = execute_sql('''
   WITH time_settings AS (
       SELECT 
@@ -512,13 +516,16 @@ def bd():
     ''',
                             time=timeframe)
 
-  tvl_mapping = {entry['SLUG']: entry for entry in updated_slugs_dict if entry['SLUG'] is not None}
+  tvl_mapping = {
+    entry['SLUG']: entry
+    for entry in updated_slugs_dict if entry['SLUG'] is not None
+  }
 
   for entry in leaderboard:
-      slug = entry.get('SLUG')
-      if slug and slug in tvl_mapping:
-          entry.update(tvl_mapping[slug])
-  
+    slug = entry.get('SLUG')
+    if slug and slug in tvl_mapping:
+      entry.update(tvl_mapping[slug])
+
   response_data = {
     "leaderboard": leaderboard,
   }
