@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_caching import Cache
+from httpx import Timeout
 import snowflake.connector
 from snowflake.connector import DictCursor
 from datetime import datetime
@@ -51,16 +52,17 @@ LLAMA_API = "https://api.llama.fi"
 
 
 async def get_llama_data(endpoint):
-  async with httpx.AsyncClient() as client:
-    try:
-      response = await client.get(f'{LLAMA_API}/{endpoint}')
-      if response.status_code != 200:
-        app.logger.error(f"Failed to get data from llama API: {response.text}")
-        return None, response.status_code
-      return response.json(), response.status_code
-    except httpx.RequestException as ex:
-      app.logger.error(f"Exception occurred while calling llama API: {ex}")
-      return None, 500
+  timeout = Timeout(40.0)
+  async with httpx.AsyncClient(timeout=timeout) as client:
+      try:
+          response = await client.get(f'{LLAMA_API}/{endpoint}')
+          if response.status_code != 200:
+              app.logger.error(f"Failed to get data from llama API: {response.text}")
+              return None, response.status_code
+          return response.json(), response.status_code
+      except httpx.HTTPError as ex:  
+          app.logger.error(f"Exception occurred while calling llama API: {type(ex).__name__}, {ex.args}")
+          return None, 500 
 
 
 async def get_tvls(slugs, slugs_dict):
