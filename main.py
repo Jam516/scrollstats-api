@@ -463,6 +463,7 @@ def bd():
   ''')
   slug_list = [d['SLUG'] for d in slugs_dict]
   updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
+  print('tvls: ')
   print(updated_slugs_dict)
   # updated_slugs_dict = await get_tvls(slug_list, slugs_dict)
 
