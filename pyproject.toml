@@ -11,6 +11,7 @@ snowflake-connector-python = "^3.1.0"
 Flask-Caching = "^2.0.2"
 Flask-Cors = "^4.0.0"
 redis = "^5.0.0"
+httpx = "^0.26.0"
 
 [tool.poetry.dev-dependencies]
 debugpy = "^1.6.2"

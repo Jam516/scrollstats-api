@@ -16,7 +16,7 @@ SNOWFLAKE_WAREHOUSE = os.environ['SNOWFLAKE_WAREHOUSE']
 
 config = {
   "CACHE_TYPE": "redis",
-  "CACHE_DEFAULT_TIMEOUT": 3600,
+  "CACHE_DEFAULT_TIMEOUT": 600,
   "CACHE_REDIS_URL": REDIS_LINK
 }
 
@@ -463,6 +463,8 @@ def bd():
   ''')
   slug_list = [d['SLUG'] for d in slugs_dict]
   updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
+  print(updated_slugs_dict)
+  # updated_slugs_dict = await get_tvls(slug_list, slugs_dict)
 
   leaderboard = execute_sql('''
   WITH time_settings AS (
