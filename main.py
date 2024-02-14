@@ -455,7 +455,6 @@ def users():
 def bd():
   timeframe = request.args.get('timeframe', 'month')
 
-  # get tvl by getting llamaid list via sql and running that list against defillama api
   slugs_dict = execute_sql('''
   SELECT DISTINCT SLUG 
   FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
@@ -463,8 +462,6 @@ def bd():
   ''')
   slug_list = [d['SLUG'] for d in slugs_dict]
   updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
-  print('tvls: ')
-  print(updated_slugs_dict)
   # updated_slugs_dict = await get_tvls(slug_list, slugs_dict)
 
   leaderboard = execute_sql('''
@@ -476,6 +473,7 @@ def bd():
   aggregated_data AS (
       SELECT 
           l.NAME AS project,
+          l.SLUG AS slug,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.HASH END) AS txns_current,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_month_ago AND t.BLOCK_TIMESTAMP >= ts.two_months_ago THEN t.HASH END) AS txns_previous,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
@@ -489,11 +487,12 @@ def bd():
         AND l.category != 'NFT'
       CROSS JOIN time_settings ts
       WHERE t.BLOCK_TIMESTAMP >= ts.two_months_ago
-      GROUP BY 1
+      GROUP BY 1,2
   )
   
   SELECT
   project,
+  slug,
   ad.gas_spend_current as ETH_FEES,
   CASE 
       WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
