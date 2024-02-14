@@ -473,7 +473,8 @@ def bd():
   aggregated_data AS (
       SELECT 
           l.NAME AS project,
-          l.SLUG AS slug,
+          l.SLUG,
+          l.CATEGORY,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.HASH END) AS txns_current,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP < ts.one_month_ago AND t.BLOCK_TIMESTAMP >= ts.two_months_ago THEN t.HASH END) AS txns_previous,
           COUNT(DISTINCT CASE WHEN t.BLOCK_TIMESTAMP >= ts.one_month_ago THEN t.FROM_ADDRESS END) AS active_accounts_current,
@@ -487,12 +488,13 @@ def bd():
         AND l.category != 'NFT'
       CROSS JOIN time_settings ts
       WHERE t.BLOCK_TIMESTAMP >= ts.two_months_ago
-      GROUP BY 1,2
+      GROUP BY 1,2,3
   )
   
   SELECT
   project,
   slug,
+  category
   ad.gas_spend_current as ETH_FEES,
   CASE 
       WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
