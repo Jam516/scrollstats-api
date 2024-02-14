@@ -467,8 +467,8 @@ def bd():
   leaderboard = execute_sql('''
   WITH time_settings AS (
       SELECT 
-          CURRENT_TIMESTAMP() - INTERVAL '1 month' AS one_month_ago,
-          CURRENT_TIMESTAMP() - INTERVAL '2 month' AS two_months_ago
+          CURRENT_TIMESTAMP() - INTERVAL '1 {time}' AS one_month_ago,
+          CURRENT_TIMESTAMP() - INTERVAL '2 {time}' AS two_months_ago
   ),
   aggregated_data AS (
       SELECT 
@@ -494,7 +494,7 @@ def bd():
   SELECT
   project,
   slug,
-  category
+  category,
   ad.gas_spend_current as ETH_FEES,
   CASE 
       WHEN ad.gas_spend_previous > 0 THEN (100 * (ad.gas_spend_current - ad.gas_spend_previous) / ad.gas_spend_previous) 
