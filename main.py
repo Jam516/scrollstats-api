@@ -835,7 +835,7 @@ def deployers():
   chain_key_deployers = execute_sql('''
   WITH scroll AS (
     SELECT
-    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    DATE,
     AVG(FILTERED_DEPLOYERS) OVER (
     ORDER BY DATE
     ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
@@ -854,7 +854,7 @@ def deployers():
   
   optimism AS (
     SELECT
-    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    DATE,
     AVG(FILTERED_DEPLOYERS) OVER (
     ORDER BY DATE
     ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
@@ -875,7 +875,7 @@ def deployers():
   
   arbitrum AS (
     SELECT
-    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    DATE,
     AVG(FILTERED_DEPLOYERS) OVER (
     ORDER BY DATE
     ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
