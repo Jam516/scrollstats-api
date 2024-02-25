@@ -761,27 +761,48 @@ def deployers():
   timeframe = request.args.get('timeframe', 'week')
 
   all_deployers = execute_sql('''
+  WITH MonthlyDeployers AS (
+    SELECT
+      DATE_TRUNC('{time}', BLOCK_TIMESTAMP) AS DATE,
+      COUNT(DISTINCT DEPLOYER) AS ALL_DEPLOYERS
+    FROM SCROLL.RAW.CONTRACTS
+    WHERE BLOCK_TIMESTAMP < DATE_TRUNC('{time}', CURRENT_TIMESTAMP())
+    GROUP BY 1
+  )
+  
   SELECT
-  TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
-  COUNT(DISTINCT DEPLOYER) AS ALL_DEPLOYERS
-  FROM SCROLL.RAW.CONTRACTS
-  WHERE BLOCK_TIMESTAMP < date_trunc('{time}', CURRENT_TIMESTAMP())
-  GROUP BY 1
-  ORDER BY 1
+    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    AVG(ALL_DEPLOYERS) OVER (
+      ORDER BY DATE
+      ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS ALL_DEPLOYERS
+  FROM MonthlyDeployers
+  ORDER BY DATE;
   ''',
                               time=timeframe)
 
   key_deployers = execute_sql('''
-  SELECT
-  TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
+  WITH MonthlyDeployers AS (
+    SELECT
+    date_trunc('{time}', CREATED_AT) AS DATE,
     COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
-  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYMENTS
-  WHERE token_type <> 'erc20'
-  AND is_min_length = 1
-  AND is_used = 1
-  AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
-  GROUP BY 1
-  ORDER BY 1
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYMENTS
+    WHERE token_type <> 'erc20'
+    AND is_min_length = 1
+    AND is_used = 1
+    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
+    GROUP BY 1
+    ORDER BY 1
+  )
+  
+  SELECT
+    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    AVG(FILTERED_DEPLOYERS) OVER (
+      ORDER BY DATE
+      ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS FILTERED_DEPLOYERS
+  FROM MonthlyDeployers
+  ORDER BY DATE;
   ''',
                               time=timeframe)
 
@@ -814,6 +835,12 @@ def deployers():
   chain_key_deployers = execute_sql('''
   WITH scroll AS (
     SELECT
+    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    AVG(FILTERED_DEPLOYERS) OVER (
+    ORDER BY DATE
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS FILTERED_DEPLOYERS
+    FROM (SELECT
     date_trunc('{time}', CREATED_AT) AS DATE,
     COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
     FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_SCROLL_DEPLOYMENTS
@@ -821,31 +848,50 @@ def deployers():
     AND is_min_length = 1
     AND is_used = 1
     AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
-    GROUP BY 1
+    GROUP BY 1)
+    ORDER BY DATE;
   ),
   
   optimism AS (
     SELECT
-    date_trunc('{time}', CREATED_AT) AS DATE,
-    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
-    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_OPTIMISM_DEPLOYMENTS
-    WHERE token_type <> 'erc20'
-    AND is_min_length = 1
-    AND is_used = 1
-    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
-    GROUP BY 1
+    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    AVG(FILTERED_DEPLOYERS) OVER (
+    ORDER BY DATE
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS FILTERED_DEPLOYERS
+    FROM (
+        SELECT
+        date_trunc('{time}', CREATED_AT) AS DATE,
+        COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+        FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_OPTIMISM_DEPLOYMENTS
+        WHERE token_type <> 'erc20'
+        AND is_min_length = 1
+        AND is_used = 1
+        AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
+        GROUP BY 1
+    )
+    ORDER BY DATE;
   ),
   
   arbitrum AS (
     SELECT
-    date_trunc('{time}', CREATED_AT) AS DATE,
-    COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
-    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ARBITRUM_DEPLOYMENTS
-    WHERE token_type <> 'erc20'
-    AND is_min_length = 1
-    AND is_used = 1
-    AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
-    GROUP BY 1
+    TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+    AVG(FILTERED_DEPLOYERS) OVER (
+    ORDER BY DATE
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS FILTERED_DEPLOYERS
+    FROM (
+        SELECT
+        date_trunc('{time}', CREATED_AT) AS DATE,
+        COUNT(DISTINCT DEPLOYER) AS FILTERED_DEPLOYERS
+        FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ARBITRUM_DEPLOYMENTS
+        WHERE token_type <> 'erc20'
+        AND is_min_length = 1
+        AND is_used = 1
+        AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
+        GROUP BY 1
+    )
+    ORDER BY DATE;
   )
   
   SELECT
@@ -877,25 +923,43 @@ def developers():
 
   commits = execute_sql('''
   SELECT
-  TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
-  COUNT(*) AS COMMITS
-  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
-  WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
-  AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
-  GROUP BY 1
-  ORDER BY 1
+  TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+  AVG(COMMITS) OVER (
+  ORDER BY DATE
+  ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+  ) AS COMMITS
+  FROM (
+    SELECT
+    date_trunc('{time}', DATE) AS DATE,
+    COUNT(*) AS COMMITS
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
+    WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
+    AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
+    GROUP BY 1
+    ORDER BY 1
+  )
+  ORDER BY DATE;
   ''',
                         time=timeframe)
 
   git_devs = execute_sql('''
   SELECT
-  TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
-  COUNT(DISTINCT USERNAME) AS ACTIVE_DEVS
-  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
-  WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
-  AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
-  GROUP BY 1
-  ORDER BY 1
+  TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
+  AVG(ACTIVE_DEVS) OVER (
+  ORDER BY DATE
+  ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+  ) AS ACTIVE_DEVS
+  FROM (
+    SELECT
+    TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
+    COUNT(DISTINCT USERNAME) AS ACTIVE_DEVS
+    FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
+    WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
+    AND DATE < date_trunc('week', CURRENT_TIMESTAMP())
+    GROUP BY 1
+    ORDER BY 1
+  )
+  ORDER BY DATE;
   ''',
                          time=timeframe)
 
