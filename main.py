@@ -951,7 +951,7 @@ def developers():
   ) AS ACTIVE_DEVS
   FROM (
     SELECT
-    TO_VARCHAR(date_trunc('{time}', DATE), 'YY-MM-DD') AS DATE,
+    date_trunc('{time}', DATE) AS DATE,
     COUNT(DISTINCT USERNAME) AS ACTIVE_DEVS
     FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_GIT_COMMITS
     WHERE DATE >= to_timestamp('2023-10-07', 'yyyy-MM-dd') 
