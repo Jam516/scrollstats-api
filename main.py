@@ -849,7 +849,7 @@ def deployers():
     AND is_used = 1
     AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
     GROUP BY 1)
-    ORDER BY DATE;
+    ORDER BY DATE
   ),
   
   optimism AS (
@@ -870,7 +870,7 @@ def deployers():
         AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
         GROUP BY 1
     )
-    ORDER BY DATE;
+    ORDER BY DATE
   ),
   
   arbitrum AS (
@@ -891,7 +891,7 @@ def deployers():
         AND CREATED_AT < date_trunc('{time}', CURRENT_TIMESTAMP())
         GROUP BY 1
     )
-    ORDER BY DATE;
+    ORDER BY DATE
   )
   
   SELECT
