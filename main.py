@@ -582,6 +582,7 @@ def economics():
   FROM rev r
   LEFT JOIN batch_fees c ON (c.DATE = r.DATE)
   LEFT JOIN verify_fees v ON (c.DATE = v.DATE)
+  ORDER BY 1
     ''',
                              time=timeframe)
 
