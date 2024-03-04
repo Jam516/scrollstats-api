@@ -971,6 +971,100 @@ def developers():
 
   return jsonify(response_data)
 
+@app.route('/econ_report')
+@cache.memoize(make_name=make_cache_key)
+def econ_report():
+  start = request.args.get('start')
+  end = request.args.get('end')
+
+  report = execute_sql('''
+  WITH l2_gas_rev AS (
+  SELECT
+  date_trunc('day', BLOCK_TIMESTAMP) AS DAY,
+  SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*GAS_PRICE)/1E18) AS l2_gas_rev
+  FROM SCROLL.RAW.TRANSACTIONS
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  AND GAS_PRICE > 0
+  GROUP BY 1
+  ),
+  
+  l1_messaging_rev AS (
+  SELECT 
+  date_trunc('day',BLOCK_TIMESTAMP) AS DAY,
+  SUM(BRIDGE_FEE) AS l1_messaging_rev
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BRIDGE_REVENUE
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  GROUP BY 1
+  ),
+  
+  l1_batch_posting_cost AS (
+  SELECT 
+  date_trunc('day',BLOCK_TIMESTAMP) AS DAY,
+  SUM(GAS_SPEND) AS l1_batch_posting_cost
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_BATCH_FEES
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  GROUP BY 1
+  ),
+  
+  l1_batch_verification_cost AS (
+  SELECT 
+  date_trunc('day',BLOCK_TIMESTAMP) AS DAY,
+  SUM(GAS_SPEND) AS l1_batch_verification_cost
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_VERIFICATION_FEES
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  GROUP BY 1
+  ),
+  
+  l1_gas_oracle_cost AS (
+  SELECT 
+  date_trunc('day',BLOCK_TIMESTAMP) AS DAY,
+  SUM(GAS_SPEND) AS l1_gas_oracle_cost
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L1_GAS_ORACLE_FEES
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  GROUP BY 1
+  ),
+  
+  l2_gas_oracle_cost AS (
+  SELECT 
+  date_trunc('day',BLOCK_TIMESTAMP) AS DAY,
+  SUM(GAS_SPEND) AS l2_gas_oracle_cost
+  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_ECONOMICS_L2_GAS_ORACLE_FEES
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  GROUP BY 1
+  )
+  
+  SELECT 
+  lgr.DAY,
+  l2_gas_rev,
+  l1_messaging_rev,
+  l1_batch_posting_cost,
+  l1_batch_verification_cost,
+  COALESCE(l1_gas_oracle_cost,0) AS l1_gas_oracle_cost,
+  l2_gas_oracle_cost,
+  l2_gas_rev+l1_messaging_rev AS total_revenue,
+  l1_batch_posting_cost+l1_batch_verification_cost+COALESCE(l1_gas_oracle_cost,0)+l2_gas_oracle_cost AS total_cost
+  FROM l2_gas_rev lgr
+  LEFT JOIN l1_messaging_rev lmr ON lmr.DAY = lgr.DAY
+  LEFT JOIN l1_batch_posting_cost lbpc ON lbpc.DAY = lgr.DAY
+  LEFT JOIN l1_batch_verification_cost lbvc ON lbvc.DAY = lgr.DAY 
+  LEFT JOIN l1_gas_oracle_cost lgoc ON lgoc.DAY = lgr.DAY 
+  LEFT JOIN l2_gas_oracle_cost lgoc2 ON lgoc2.DAY = lgr.DAY 
+  ORDER BY 1
+  ''',
+                        start=start, end=end)
+
+  response_data = {
+    "report": report,
+  }
+
+  return jsonify(response_data)
+
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=81)
