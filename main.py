@@ -457,14 +457,13 @@ def users():
 def bd():
   timeframe = request.args.get('timeframe', 'month')
 
-  slugs_dict = execute_sql('''
-  SELECT DISTINCT SLUG 
-  FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
-  WHERE SLUG IS NOT NULL 
-  ''')
-  slug_list = [d['SLUG'] for d in slugs_dict]
-  updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
-  # updated_slugs_dict = await get_tvls(slug_list, slugs_dict)
+  # slugs_dict = execute_sql('''
+  # SELECT DISTINCT SLUG 
+  # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
+  # WHERE SLUG IS NOT NULL 
+  # ''')
+  # slug_list = [d['SLUG'] for d in slugs_dict]
+  # updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
 
   leaderboard = execute_sql('''
   WITH time_settings AS (
@@ -517,15 +516,15 @@ def bd():
     ''',
                             time=timeframe)
 
-  tvl_mapping = {
-    entry['SLUG']: entry
-    for entry in updated_slugs_dict if entry['SLUG'] is not None
-  }
+  # tvl_mapping = {
+  #   entry['SLUG']: entry
+  #   for entry in updated_slugs_dict if entry['SLUG'] is not None
+  # }
 
-  for entry in leaderboard:
-    slug = entry.get('SLUG')
-    if slug and slug in tvl_mapping:
-      entry.update(tvl_mapping[slug])
+  # for entry in leaderboard:
+  #   slug = entry.get('SLUG')
+  #   if slug and slug in tvl_mapping:
+  #     entry.update(tvl_mapping[slug])
 
   response_data = {
     "leaderboard": leaderboard,
