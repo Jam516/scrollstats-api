@@ -54,15 +54,17 @@ LLAMA_API = "https://api.llama.fi"
 async def get_llama_data(endpoint):
   timeout = Timeout(40.0)
   async with httpx.AsyncClient(timeout=timeout) as client:
-      try:
-          response = await client.get(f'{LLAMA_API}/{endpoint}')
-          if response.status_code != 200:
-              app.logger.error(f"Failed to get data from llama API: {response.text}")
-              return None, response.status_code
-          return response.json(), response.status_code
-      except httpx.HTTPError as ex:  
-          app.logger.error(f"Exception occurred while calling llama API: {type(ex).__name__}, {ex.args}")
-          return None, 500 
+    try:
+      response = await client.get(f'{LLAMA_API}/{endpoint}')
+      if response.status_code != 200:
+        app.logger.error(f"Failed to get data from llama API: {response.text}")
+        return None, response.status_code
+      return response.json(), response.status_code
+    except httpx.HTTPError as ex:
+      app.logger.error(
+        f"Exception occurred while calling llama API: {type(ex).__name__}, {ex.args}"
+      )
+      return None, 500
 
 
 async def get_tvls(slugs, slugs_dict):
@@ -458,9 +460,9 @@ def bd():
   timeframe = request.args.get('timeframe', 'month')
 
   # slugs_dict = execute_sql('''
-  # SELECT DISTINCT SLUG 
+  # SELECT DISTINCT SLUG
   # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
-  # WHERE SLUG IS NOT NULL 
+  # WHERE SLUG IS NOT NULL
   # ''')
   # slug_list = [d['SLUG'] for d in slugs_dict]
   # updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
@@ -970,6 +972,7 @@ def developers():
 
   return jsonify(response_data)
 
+
 @app.route('/econ_report')
 @cache.memoize(make_name=make_cache_key)
 def econ_report():
@@ -991,7 +994,7 @@ def econ_report():
   WITH l2_transactions AS (
   SELECT
   date_trunc('day', BLOCK_TIMESTAMP) AS DAY,
-  COUNT(*) AS l2_transactions
+  COUNT(*) AS l2_transaction_quantity
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
   AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
@@ -1069,7 +1072,8 @@ def econ_report():
   LEFT JOIN l2_transactions ltr ON ltr.DAY = lgr.DAY
   ORDER BY 1
   ''',
-                        start=start, end=end)
+                       start=start,
+                       end=end)
 
   response_data = {
     "report": report,
