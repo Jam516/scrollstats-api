@@ -987,6 +987,17 @@ def econ_report():
   AND GAS_PRICE > 0
   GROUP BY 1
   ),
+
+  WITH l2_transactions AS (
+  SELECT
+  date_trunc('day', BLOCK_TIMESTAMP) AS DAY,
+  COUNT(*) AS l2_transactions
+  FROM SCROLL.RAW.TRANSACTIONS
+  WHERE BLOCK_TIMESTAMP >= to_timestamp('{start}', 'yyyy-MM-dd') 
+  AND BLOCK_TIMESTAMP <= to_timestamp('{end}', 'yyyy-MM-dd')
+  AND GAS_PRICE > 0
+  GROUP BY 1
+  ),
   
   l1_messaging_rev AS (
   SELECT 
@@ -1047,13 +1058,15 @@ def econ_report():
   COALESCE(l1_gas_oracle_cost,0) AS l1_gas_oracle_cost,
   l2_gas_oracle_cost,
   l2_gas_rev+l1_messaging_rev AS total_revenue,
-  l1_batch_posting_cost+l1_batch_verification_cost+COALESCE(l1_gas_oracle_cost,0)+l2_gas_oracle_cost AS total_cost
+  l1_batch_posting_cost+l1_batch_verification_cost+COALESCE(l1_gas_oracle_cost,0)+l2_gas_oracle_cost AS total_cost,
+  l2_transaction_quantity
   FROM l2_gas_rev lgr
   LEFT JOIN l1_messaging_rev lmr ON lmr.DAY = lgr.DAY
   LEFT JOIN l1_batch_posting_cost lbpc ON lbpc.DAY = lgr.DAY
   LEFT JOIN l1_batch_verification_cost lbvc ON lbvc.DAY = lgr.DAY 
   LEFT JOIN l1_gas_oracle_cost lgoc ON lgoc.DAY = lgr.DAY 
   LEFT JOIN l2_gas_oracle_cost lgoc2 ON lgoc2.DAY = lgr.DAY 
+  LEFT JOIN l2_transactions ltr ON ltr.DAY = lgr.DAY
   ORDER BY 1
   ''',
                         start=start, end=end)
