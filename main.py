@@ -991,7 +991,7 @@ def econ_report():
   GROUP BY 1
   ),
 
-  WITH l2_transactions AS (
+  l2_transactions AS (
   SELECT
   date_trunc('day', BLOCK_TIMESTAMP) AS DAY,
   COUNT(*) AS l2_transaction_quantity
