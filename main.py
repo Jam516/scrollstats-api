@@ -514,7 +514,7 @@ def bd():
       ELSE 0 
   END as WALLETS_GROWTH
   FROM aggregated_data ad  
-  ORDER BY ad.gas_spend_current DESC
+  ORDER BY ad.gas_spend_current DESC NULLS LAST
     ''',
                             time=timeframe)
 
