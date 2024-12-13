@@ -16,9 +16,9 @@ SNOWFLAKE_ACCOUNT = os.environ['SNOWFLAKE_ACCOUNT']
 SNOWFLAKE_WAREHOUSE = os.environ['SNOWFLAKE_WAREHOUSE']
 
 config = {
-  "CACHE_TYPE": "redis",
-  "CACHE_DEFAULT_TIMEOUT": 21600,
-  "CACHE_REDIS_URL": REDIS_LINK
+    "CACHE_TYPE": "redis",
+    "CACHE_DEFAULT_TIMEOUT": 21600,
+    "CACHE_REDIS_URL": REDIS_LINK
 }
 
 app = Flask(__name__)
@@ -28,81 +28,83 @@ CORS(app)
 
 
 def make_cache_key(*args, **kwargs):
-  path = request.path
-  args = str(hash(frozenset(request.args.items())))
-  return (path + args).encode('utf-8')
+    path = request.path
+    args = str(hash(frozenset(request.args.items())))
+    return (path + args).encode('utf-8')
 
 
 def execute_sql(sql_string, **kwargs):
-  conn = snowflake.connector.connect(user=SNOWFLAKE_USER,
-                                     password=SNOWFLAKE_PASS,
-                                     account=SNOWFLAKE_ACCOUNT,
-                                     warehouse=SNOWFLAKE_WAREHOUSE,
-                                     database="BUNDLEBEAR",
-                                     schema="ERC4337")
+    conn = snowflake.connector.connect(user=SNOWFLAKE_USER,
+                                       password=SNOWFLAKE_PASS,
+                                       account=SNOWFLAKE_ACCOUNT,
+                                       warehouse=SNOWFLAKE_WAREHOUSE,
+                                       database="BUNDLEBEAR",
+                                       schema="ERC4337")
 
-  sql = sql_string.format(**kwargs)
-  res = conn.cursor(DictCursor).execute(sql)
-  results = res.fetchall()
-  conn.close()
-  return results
+    sql = sql_string.format(**kwargs)
+    res = conn.cursor(DictCursor).execute(sql)
+    results = res.fetchall()
+    conn.close()
+    return results
 
 
 LLAMA_API = "https://api.llama.fi"
 
 
 async def get_llama_data(endpoint):
-  timeout = Timeout(40.0)
-  async with httpx.AsyncClient(timeout=timeout) as client:
-    try:
-      response = await client.get(f'{LLAMA_API}/{endpoint}')
-      if response.status_code != 200:
-        app.logger.error(f"Failed to get data from llama API: {response.text}")
-        return None, response.status_code
-      return response.json(), response.status_code
-    except httpx.HTTPError as ex:
-      app.logger.error(
-        f"Exception occurred while calling llama API: {type(ex).__name__}, {ex.args}"
-      )
-      return None, 500
+    timeout = Timeout(40.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        try:
+            response = await client.get(f'{LLAMA_API}/{endpoint}')
+            if response.status_code != 200:
+                app.logger.error(
+                    f"Failed to get data from llama API: {response.text}")
+                return None, response.status_code
+            return response.json(), response.status_code
+        except httpx.HTTPError as ex:
+            app.logger.error(
+                f"Exception occurred while calling llama API: {type(ex).__name__}, {ex.args}"
+            )
+            return None, 500
 
 
 async def get_tvls(slugs, slugs_dict):
-  # Create a map from slug to dictionary for easy update
-  slug_map = {d['SLUG']: d for d in slugs_dict}
+    # Create a map from slug to dictionary for easy update
+    slug_map = {d['SLUG']: d for d in slugs_dict}
 
-  async def fetch_tvl(slug):
-    response_data, status_code = await get_llama_data(f'protocol/{slug}')
-    if response_data is None:
-      return slug, None
-    return slug, response_data.get('currentChainTvls', {}).get('Scroll', None)
+    async def fetch_tvl(slug):
+        response_data, status_code = await get_llama_data(f'protocol/{slug}')
+        if response_data is None:
+            return slug, None
+        return slug, response_data.get('currentChainTvls',
+                                       {}).get('Scroll', None)
 
-  # Gather all tasks
-  tasks = [fetch_tvl(slug) for slug in slugs]
-  results = await asyncio.gather(*tasks)
+    # Gather all tasks
+    tasks = [fetch_tvl(slug) for slug in slugs]
+    results = await asyncio.gather(*tasks)
 
-  # Update slugs_dict with the fetched TVL values
-  for slug, tvl in results:
-    if slug in slug_map:
-      slug_map[slug]['TVL'] = tvl
+    # Update slugs_dict with the fetched TVL values
+    for slug, tvl in results:
+        if slug in slug_map:
+            slug_map[slug]['TVL'] = tvl
 
-  return list(slug_map.values())
+    return list(slug_map.values())
 
 
 @app.route('/users')
 @cache.memoize(make_name=make_cache_key)
 def users():
-  filter = request.args.get('filter', 'all')
-  timeframe = request.args.get('timeframe', 'week')
+    filter = request.args.get('filter', 'all')
+    timeframe = request.args.get('timeframe', 'week')
 
-  if filter == 'all':
-    actives_24h = execute_sql('''
+    if filter == 'all':
+        actives_24h = execute_sql('''
     SELECT COUNT(DISTINCT FROM_ADDRESS) as active_wallets
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 day' 
     ''')
 
-    actives_growth_24h = execute_sql('''
+        actives_growth_24h = execute_sql('''
     WITH active_wallet_counts AS (
         SELECT
             COUNT(DISTINCT CASE WHEN BLOCK_TIMESTAMP >= current_timestamp() - interval '1 day' THEN FROM_ADDRESS END) as past_day_wallets,
@@ -115,13 +117,13 @@ def users():
     FROM active_wallet_counts;
     ''')
 
-    actives_7d = execute_sql('''
+        actives_7d = execute_sql('''
     SELECT COUNT(DISTINCT FROM_ADDRESS) as active_wallets
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '7 day'
     ''')
 
-    actives_growth_7d = execute_sql('''
+        actives_growth_7d = execute_sql('''
     WITH active_wallet_counts AS (
         SELECT
             COUNT(DISTINCT CASE WHEN BLOCK_TIMESTAMP >= current_timestamp() - interval '7 day' THEN FROM_ADDRESS END) as past_week_wallets,
@@ -134,13 +136,13 @@ def users():
     FROM active_wallet_counts;
     ''')
 
-    actives_1m = execute_sql('''
+        actives_1m = execute_sql('''
     SELECT COUNT(DISTINCT FROM_ADDRESS) as active_wallets 
     FROM SCROLL.RAW.TRANSACTIONS
     WHERE BLOCK_TIMESTAMP >= current_timestamp - interval '1 month' 
     ''')
 
-    actives_growth_1m = execute_sql('''
+        actives_growth_1m = execute_sql('''
     WITH active_wallet_counts AS (
         SELECT
             COUNT(DISTINCT CASE WHEN BLOCK_TIMESTAMP >= current_timestamp() - interval '1 month' THEN FROM_ADDRESS END) as past_month_wallets,
@@ -153,7 +155,7 @@ def users():
     FROM active_wallet_counts;
     ''')
 
-    active_accounts_chart = execute_sql('''
+        active_accounts_chart = execute_sql('''
     SELECT
     TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
     COUNT(DISTINCT FROM_ADDRESS) as active_wallets
@@ -162,9 +164,9 @@ def users():
     GROUP BY 1
     ORDER BY 1
     ''',
-                                        time=timeframe)
+                                            time=timeframe)
 
-    transactions_chart = execute_sql('''
+        transactions_chart = execute_sql('''
     SELECT
     TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') as DATE,
     COUNT(*) as transactions
@@ -173,16 +175,16 @@ def users():
     GROUP BY 1
     ORDER BY 1
     ''',
-                                     time=timeframe)
+                                         time=timeframe)
 
-    if timeframe == 'week':
-      retention_scope = 12
-    elif timeframe == 'month':
-      retention_scope = 6
-    elif timeframe == 'day':
-      retention_scope = 14
+        if timeframe == 'week':
+            retention_scope = 12
+        elif timeframe == 'month':
+            retention_scope = 6
+        elif timeframe == 'day':
+            retention_scope = 14
 
-    retention_chart = execute_sql('''
+        retention_chart = execute_sql('''
     WITH transactions AS (
       SELECT FROM_ADDRESS, BLOCK_TIMESTAMP AS created_at
       FROM SCROLL.RAW.TRANSACTIONS
@@ -240,52 +242,52 @@ def users():
       AND A.cohort_{time} < date_trunc('{time}', CURRENT_TIMESTAMP())
     ORDER BY 1,3
     ''',
-                                  time=timeframe,
-                                  retention_scope=retention_scope)
+                                      time=timeframe,
+                                      retention_scope=retention_scope)
 
-    # contract_users_chart = execute_sql('''
-    # WITH RankedProjects AS (
-    #   SELECT
-    #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
-    #     CASE
-    #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
-    #         WHEN VALUE > 0 THEN 'ETH transfer'
-    #         ELSE 'empty_call'
-    #     END AS PROJECT,
-    #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
-    #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
-    #   FROM
-    #     SCROLL.RAW.TRANSACTIONS u
-    #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
+        # contract_users_chart = execute_sql('''
+        # WITH RankedProjects AS (
+        #   SELECT
+        #     DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
+        #     CASE
+        #         WHEN c.ADDRESS IS NOT NULL THEN c.ADDRESS
+        #         WHEN VALUE > 0 THEN 'ETH transfer'
+        #         ELSE 'empty_call'
+        #     END AS PROJECT,
+        #     COUNT(DISTINCT u.FROM_ADDRESS) AS NUM_UNIQUE_WALLETS,
+        #     ROW_NUMBER() OVER(PARTITION BY DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) ORDER BY COUNT(DISTINCT u.FROM_ADDRESS) DESC) AS RN
+        #   FROM
+        #     SCROLL.RAW.TRANSACTIONS u
+        #     LEFT JOIN SCROLL.RAW.CONTRACTS c ON u.TO_ADDRESS = c.ADDRESS
 
-    #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
-    #   GROUP BY
-    #     1, 2
-    # ),
-    # GroupedProjects AS (
-    #   SELECT
-    #     DATE,
-    #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
-    #     SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
-    #   FROM
-    #     RankedProjects
-    #   WHERE NUM_UNIQUE_WALLETS > 10
-    #   GROUP BY
-    #     1, 2
-    # )
-    # SELECT
-    #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE,
-    #   COALESCE(l.NAME, g.PROJECT) AS PROJECT,
-    #   g.NUM_UNIQUE_WALLETS
-    # FROM
-    #   GroupedProjects g
-    # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
-    # ORDER BY
-    #   g.DATE, g.NUM_UNIQUE_WALLETS DESC;
-    # ''',
-    #                                    time=timeframe)
+        #   WHERE (c.ADDRESS IS NOT NULL OR VALUE > 0)
+        #   GROUP BY
+        #     1, 2
+        # ),
+        # GroupedProjects AS (
+        #   SELECT
+        #     DATE,
+        #     CASE WHEN RN <= 10 THEN PROJECT ELSE 'Other' END AS PROJECT,
+        #     SUM(NUM_UNIQUE_WALLETS) AS NUM_UNIQUE_WALLETS
+        #   FROM
+        #     RankedProjects
+        #   WHERE NUM_UNIQUE_WALLETS > 10
+        #   GROUP BY
+        #     1, 2
+        # )
+        # SELECT
+        #   TO_VARCHAR(g.DATE, 'YYYY-MM-DD') AS DATE,
+        #   COALESCE(l.NAME, g.PROJECT) AS PROJECT,
+        #   g.NUM_UNIQUE_WALLETS
+        # FROM
+        #   GroupedProjects g
+        # LEFT JOIN SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS l ON g.PROJECT = l.ADDRESS
+        # ORDER BY
+        #   g.DATE, g.NUM_UNIQUE_WALLETS DESC;
+        # ''',
+        #                                    time=timeframe)
 
-    contract_transactions_chart = execute_sql('''
+        contract_transactions_chart = execute_sql('''
     WITH RankedProjects AS (
       SELECT
         DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
@@ -326,9 +328,9 @@ def users():
     ORDER BY
       g.DATE, g.NUM_TRANSACTIONS DESC;
     ''',
-                                              time=timeframe)
+                                                  time=timeframe)
 
-    contract_gas_chart = execute_sql('''
+        contract_gas_chart = execute_sql('''
     WITH RankedProjects AS (
       SELECT 
         DATE_TRUNC('{time}', u.BLOCK_TIMESTAMP) AS DATE,
@@ -369,9 +371,9 @@ def users():
     ORDER BY 
       g.DATE, g.ETH_FEES DESC;
     ''',
-                                     time=timeframe)
+                                         time=timeframe)
 
-    trending_contracts = execute_sql('''
+        trending_contracts = execute_sql('''
     WITH time_settings AS (
     SELECT 
         CURRENT_TIMESTAMP() - INTERVAL '1 {time}' AS one_{time}_ago,
@@ -426,48 +428,48 @@ def users():
         ad.txns_current DESC
     LIMIT 20
     ''',
-                                     time=timeframe)
+                                         time=timeframe)
 
-    current_time = datetime.now().strftime('%d/%m/%y %H:%M')
+        current_time = datetime.now().strftime('%d/%m/%y %H:%M')
 
-    response_data = {
-      "time": current_time,
-      "actives_24h": actives_24h,
-      "actives_growth_24h": actives_growth_24h,
-      "actives_7d": actives_7d,
-      "actives_growth_7d": actives_growth_7d,
-      "actives_1m": actives_1m,
-      "actives_growth_1m": actives_growth_1m,
-      "active_accounts_chart": active_accounts_chart,
-      "transactions_chart": transactions_chart,
-      "retention_chart": retention_chart,
-      # "contract_users_chart": contract_users_chart,
-      "contract_transactions_chart": contract_transactions_chart,
-      "contract_gas_chart": contract_gas_chart,
-      "trending_contracts": trending_contracts
-    }
+        response_data = {
+            "time": current_time,
+            "actives_24h": actives_24h,
+            "actives_growth_24h": actives_growth_24h,
+            "actives_7d": actives_7d,
+            "actives_growth_7d": actives_growth_7d,
+            "actives_1m": actives_1m,
+            "actives_growth_1m": actives_growth_1m,
+            "active_accounts_chart": active_accounts_chart,
+            "transactions_chart": transactions_chart,
+            "retention_chart": retention_chart,
+            # "contract_users_chart": contract_users_chart,
+            "contract_transactions_chart": contract_transactions_chart,
+            "contract_gas_chart": contract_gas_chart,
+            "trending_contracts": trending_contracts
+        }
 
-    return jsonify(response_data)
+        return jsonify(response_data)
 
-  else:
+    else:
 
-    return 'COMING SOON'
+        return 'COMING SOON'
 
 
 @app.route('/bd')
 @cache.memoize(make_name=make_cache_key)
 def bd():
-  timeframe = request.args.get('timeframe', 'month')
+    timeframe = request.args.get('timeframe', 'month')
 
-  # slugs_dict = execute_sql('''
-  # SELECT DISTINCT SLUG
-  # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
-  # WHERE SLUG IS NOT NULL
-  # ''')
-  # slug_list = [d['SLUG'] for d in slugs_dict]
-  # updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
+    # slugs_dict = execute_sql('''
+    # SELECT DISTINCT SLUG
+    # FROM SCROLLSTATS.DBT_SCROLLSTATS.SCROLLSTATS_LABELS_APPS
+    # WHERE SLUG IS NOT NULL
+    # ''')
+    # slug_list = [d['SLUG'] for d in slugs_dict]
+    # updated_slugs_dict = asyncio.run(get_tvls(slug_list, slugs_dict))
 
-  leaderboard = execute_sql('''
+    leaderboard = execute_sql('''
   WITH time_settings AS (
       SELECT 
           CURRENT_TIMESTAMP() - INTERVAL '1 {time}' AS one_month_ago,
@@ -516,31 +518,31 @@ def bd():
   FROM aggregated_data ad  
   ORDER BY ad.gas_spend_current DESC NULLS LAST
     ''',
-                            time=timeframe)
+                              time=timeframe)
 
-  # tvl_mapping = {
-  #   entry['SLUG']: entry
-  #   for entry in updated_slugs_dict if entry['SLUG'] is not None
-  # }
+    # tvl_mapping = {
+    #   entry['SLUG']: entry
+    #   for entry in updated_slugs_dict if entry['SLUG'] is not None
+    # }
 
-  # for entry in leaderboard:
-  #   slug = entry.get('SLUG')
-  #   if slug and slug in tvl_mapping:
-  #     entry.update(tvl_mapping[slug])
+    # for entry in leaderboard:
+    #   slug = entry.get('SLUG')
+    #   if slug and slug in tvl_mapping:
+    #     entry.update(tvl_mapping[slug])
 
-  response_data = {
-    "leaderboard": leaderboard,
-  }
+    response_data = {
+        "leaderboard": leaderboard,
+    }
 
-  return jsonify(response_data)
+    return jsonify(response_data)
 
 
 @app.route('/economics')
 @cache.memoize(make_name=make_cache_key)
 def economics():
-  timeframe = request.args.get('timeframe', 'month')
+    timeframe = request.args.get('timeframe', 'month')
 
-  gross_profit = execute_sql('''
+    gross_profit = execute_sql('''
   WITH batch_fees AS (
   SELECT
       date_trunc('{time}', BLOCK_TIMESTAMP) AS DATE,
@@ -585,9 +587,9 @@ def economics():
   LEFT JOIN verify_fees v ON (c.DATE = v.DATE)
   ORDER BY 1
     ''',
-                             time=timeframe)
+                               time=timeframe)
 
-  batch_fees = execute_sql('''
+    batch_fees = execute_sql('''
   SELECT
       TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
       SUM(GAS_SPEND) AS BATCH_FEES,
@@ -596,9 +598,9 @@ def economics():
   GROUP BY 1
   ORDER BY 1
     ''',
-                           time=timeframe)
+                             time=timeframe)
 
-  verify_fees = execute_sql('''
+    verify_fees = execute_sql('''
   SELECT
       TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
       SUM(GAS_SPEND) AS VERIFICATION_FEES,
@@ -607,9 +609,9 @@ def economics():
   GROUP BY 1
   ORDER BY 1
     ''',
-                            time=timeframe)
+                              time=timeframe)
 
-  gas_revenue = execute_sql('''
+    gas_revenue = execute_sql('''
   SELECT
       TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*RECEIPT_EFFECTIVE_GAS_PRICE)/1E18) AS GAS_REV,
@@ -622,9 +624,9 @@ def economics():
   GROUP BY 1
   ORDER BY 1
     ''',
-                            time=timeframe)
+                              time=timeframe)
 
-  week_gross_profit = execute_sql('''
+    week_gross_profit = execute_sql('''
   WITH batch_fees AS (
   SELECT
       SUM(GAS_SPEND) AS BATCH_FEES
@@ -653,7 +655,7 @@ def economics():
   FROM rev,batch_fees,verify_fees
   ''')
 
-  month_gross_profit = execute_sql('''
+    month_gross_profit = execute_sql('''
   WITH batch_fees AS (
   SELECT
       SUM(GAS_SPEND) AS BATCH_FEES
@@ -682,7 +684,7 @@ def economics():
   FROM rev,batch_fees,verify_fees
   ''')
 
-  all_gross_profit = execute_sql('''
+    all_gross_profit = execute_sql('''
   WITH batch_fees AS (
   SELECT
       SUM(GAS_SPEND) AS BATCH_FEES
@@ -707,7 +709,7 @@ def economics():
   FROM rev,batch_fees,verify_fees
   ''')
 
-  week_revenue = execute_sql('''
+    week_revenue = execute_sql('''
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*RECEIPT_EFFECTIVE_GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
@@ -715,7 +717,7 @@ def economics():
   AND RECEIPT_EFFECTIVE_GAS_PRICE > 0
   ''')
 
-  month_revenue = execute_sql('''
+    month_revenue = execute_sql('''
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*RECEIPT_EFFECTIVE_GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
@@ -723,14 +725,14 @@ def economics():
   AND RECEIPT_EFFECTIVE_GAS_PRICE > 0
   ''')
 
-  all_revenue = execute_sql('''
+    all_revenue = execute_sql('''
   SELECT
       SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*RECEIPT_EFFECTIVE_GAS_PRICE)/1E18) AS GAS_REV
   FROM SCROLL.RAW.TRANSACTIONS
   WHERE RECEIPT_EFFECTIVE_GAS_PRICE > 0
   ''')
 
-  l1vl2fee = execute_sql('''
+    l1vl2fee = execute_sql('''
   SELECT
   TO_VARCHAR(date_trunc('{time}', BLOCK_TIMESTAMP), 'YY-MM-DD') AS DATE,
   100* SUM(RECEIPT_L1_FEE/1E18)/SUM((RECEIPT_L1_FEE+RECEIPT_GAS_USED*RECEIPT_EFFECTIVE_GAS_PRICE)/1E18) AS l1_fee,
@@ -738,31 +740,31 @@ def economics():
   FROM SCROLL.RAW.TRANSACTIONS
   GROUP BY 1
   ''',
-                         time=timeframe)
+                           time=timeframe)
 
-  response_data = {
-    "gross_profit": gross_profit,
-    "batch_fees": batch_fees,
-    "verify_fees": verify_fees,
-    "gas_revenue": gas_revenue,
-    "week_gross_profit": week_gross_profit,
-    "month_gross_profit": month_gross_profit,
-    "all_gross_profit": all_gross_profit,
-    "week_revenue": week_revenue,
-    "month_revenue": month_revenue,
-    "all_revenue": all_revenue,
-    "l1vl2fee": l1vl2fee,
-  }
+    response_data = {
+        "gross_profit": gross_profit,
+        "batch_fees": batch_fees,
+        "verify_fees": verify_fees,
+        "gas_revenue": gas_revenue,
+        "week_gross_profit": week_gross_profit,
+        "month_gross_profit": month_gross_profit,
+        "all_gross_profit": all_gross_profit,
+        "week_revenue": week_revenue,
+        "month_revenue": month_revenue,
+        "all_revenue": all_revenue,
+        "l1vl2fee": l1vl2fee,
+    }
 
-  return jsonify(response_data)
+    return jsonify(response_data)
 
 
 @app.route('/deployers')
 @cache.memoize(make_name=make_cache_key)
 def deployers():
-  timeframe = request.args.get('timeframe', 'week')
+    timeframe = request.args.get('timeframe', 'week')
 
-  all_deployers = execute_sql('''
+    all_deployers = execute_sql('''
   WITH MonthlyDeployers AS (
     SELECT
       DATE_TRUNC('{time}', BLOCK_TIMESTAMP) AS DATE,
@@ -781,9 +783,9 @@ def deployers():
   FROM MonthlyDeployers
   ORDER BY DATE;
   ''',
-                              time=timeframe)
+                                time=timeframe)
 
-  key_deployers = execute_sql('''
+    key_deployers = execute_sql('''
   WITH MonthlyDeployers AS (
     SELECT
     date_trunc('{time}', CREATED_AT) AS DATE,
@@ -806,9 +808,9 @@ def deployers():
   FROM MonthlyDeployers
   ORDER BY DATE;
   ''',
-                              time=timeframe)
+                                time=timeframe)
 
-  returning_key_deployers = execute_sql('''
+    returning_key_deployers = execute_sql('''
   SELECT
       TO_VARCHAR(date_trunc('{time}', CREATED_AT), 'YY-MM-DD') AS DATE,
       CASE 
@@ -832,9 +834,9 @@ def deployers():
   GROUP BY 1,2
   ORDER BY 1
   ''',
-                                        time=timeframe)
+                                          time=timeframe)
 
-  chain_key_deployers = execute_sql('''
+    chain_key_deployers = execute_sql('''
   WITH scroll AS (
     SELECT
     DATE,
@@ -906,24 +908,24 @@ def deployers():
   INNER JOIN arbitrum a ON a.DATE = s.DATE
   ORDER BY 1
   ''',
-                                    time=timeframe)
+                                      time=timeframe)
 
-  response_data = {
-    "all_deployers": all_deployers,
-    "key_deployers": key_deployers,
-    "returning_key_deployers": returning_key_deployers,
-    "chain_key_deployers": chain_key_deployers,
-  }
+    response_data = {
+        "all_deployers": all_deployers,
+        "key_deployers": key_deployers,
+        "returning_key_deployers": returning_key_deployers,
+        "chain_key_deployers": chain_key_deployers,
+    }
 
-  return jsonify(response_data)
+    return jsonify(response_data)
 
 
 @app.route('/developers')
 @cache.memoize(make_name=make_cache_key)
 def developers():
-  timeframe = request.args.get('timeframe', 'week')
+    timeframe = request.args.get('timeframe', 'week')
 
-  commits = execute_sql('''
+    commits = execute_sql('''
   SELECT
   TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
   AVG(COMMITS) OVER (
@@ -942,9 +944,9 @@ def developers():
   )
   ORDER BY DATE;
   ''',
-                        time=timeframe)
+                          time=timeframe)
 
-  git_devs = execute_sql('''
+    git_devs = execute_sql('''
   SELECT
   TO_VARCHAR(DATE, 'YY-MM-DD') AS DATE,
   AVG(ACTIVE_DEVS) OVER (
@@ -963,23 +965,23 @@ def developers():
   )
   ORDER BY DATE;
   ''',
-                         time=timeframe)
+                           time=timeframe)
 
-  response_data = {
-    "commits": commits,
-    "git_devs": git_devs,
-  }
+    response_data = {
+        "commits": commits,
+        "git_devs": git_devs,
+    }
 
-  return jsonify(response_data)
+    return jsonify(response_data)
 
 
 @app.route('/econ_report')
 @cache.memoize(make_name=make_cache_key)
 def econ_report():
-  start = request.args.get('start')
-  end = request.args.get('end')
+    start = request.args.get('start')
+    end = request.args.get('end')
 
-  report = execute_sql('''
+    report = execute_sql('''
   WITH l2_gas_rev AS (
   SELECT
   date_trunc('day', BLOCK_TIMESTAMP) AS DAY,
@@ -1059,9 +1061,9 @@ def econ_report():
   l1_batch_posting_cost,
   l1_batch_verification_cost,
   COALESCE(l1_gas_oracle_cost,0) AS l1_gas_oracle_cost,
-  l2_gas_oracle_cost,
+  COALESCE(l2_gas_oracle_cost,0) AS l2_gas_oracle_cost,
   l2_gas_rev+l1_messaging_rev AS total_revenue,
-  l1_batch_posting_cost+l1_batch_verification_cost+COALESCE(l1_gas_oracle_cost,0)+l2_gas_oracle_cost AS total_cost,
+  l1_batch_posting_cost+l1_batch_verification_cost+COALESCE(l1_gas_oracle_cost,0)+COALESCE(l2_gas_oracle_cost,0) AS total_cost,
   l2_transaction_quantity
   FROM l2_gas_rev lgr
   LEFT JOIN l1_messaging_rev lmr ON lmr.DAY = lgr.DAY
@@ -1072,15 +1074,15 @@ def econ_report():
   LEFT JOIN l2_transactions ltr ON ltr.DAY = lgr.DAY
   ORDER BY 1
   ''',
-                       start=start,
-                       end=end)
+                         start=start,
+                         end=end)
 
-  response_data = {
-    "report": report,
-  }
+    response_data = {
+        "report": report,
+    }
 
-  return jsonify(response_data)
+    return jsonify(response_data)
 
 
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', port=81)
+    app.run(host='0.0.0.0', port=81)
